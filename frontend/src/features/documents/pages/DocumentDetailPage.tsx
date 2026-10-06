@@ -544,14 +544,14 @@ function DocumentInfoSidebar({
             label="Holder"
             value={d.currentHolder?.fullName ?? d.encodedBy?.fullName ?? 'Unassigned'}
           />
-          <InfoLine
+          {/* <InfoLine
             label="Originating office"
             value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : (d.originatingOfficeName ?? 'â€”')}
           />
           <InfoLine
             label="Current office"
             value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : 'â€”'}
-          />
+          /> */}
         </ul>
       </Card>
 
