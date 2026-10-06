@@ -26,7 +26,10 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { DocumentTypesModule } from './modules/document-types/document-types.module';
 import { DocumentAttachmentsModule } from './modules/document-attachments/document-attachments.module';
-import { DocumentReviewModule } from './modules/document-review/document-review.module';
+// DocumentReviewModule is intentionally not registered. Approval / rejection
+// was removed from the workflow (REGISTERED -> RECEIVED -> ARCHIVED), and its
+// write endpoints still authorized DOCUMENT_OFFICER. Historical DocumentReview
+// rows remain readable through the document detail payload.
 import { DocumentTrackingModule } from './modules/document-tracking/document-tracking.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
@@ -57,7 +60,6 @@ import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
     DocumentsModule,
     DocumentTypesModule,
     DocumentAttachmentsModule,
-    DocumentReviewModule,
     DocumentTrackingModule,
     NotificationsModule,
     AuditLogsModule,

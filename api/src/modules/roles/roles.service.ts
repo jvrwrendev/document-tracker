@@ -45,6 +45,28 @@ export const PERMISSION_CATALOG: string[] = [
   'settings.view', 'settings.edit',
 ];
 
+/**
+ * Permissions that are role-restricted by design and therefore cannot be
+ * granted through the Roles screen.
+ *
+ * `documents.track` (Recipient Tracking) monitors the distribution and receipt
+ * status of every office a document was routed to. That is supervisory, so it
+ * is limited to System Administrators and Office Administrators. A Document
+ * Officer receives documents and a Document Encoder registers them; neither
+ * may monitor distribution, which would let them observe offices outside
+ * their own. The API enforces the same allowlist by role, so this table is
+ * defense in depth rather than the only control.
+ */
+export const ROLE_RESTRICTED_PERMISSIONS: Record<string, Role[]> = {
+  'documents.track': [Role.DOCUMENT_ENCODER, Role.DOCUMENT_OFFICER],
+};
+
+export function restrictedPermissionsFor(role: Role): string[] {
+  return Object.values(ROLE_RESTRICTED_PERMISSIONS)
+    .filter((roles) => roles.includes(role))
+    .flat();
+}
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   SYSTEM_ADMIN: PERMISSION_CATALOG.slice(),
   OFFICE_ADMIN: [
@@ -59,13 +81,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   ],
   DOCUMENT_ENCODER: [
     'dashboard.view',
-    'documents.view', 'documents.create', 'documents.edit', 'documents.register', 'documents.track',
+    'documents.view', 'documents.create', 'documents.edit', 'documents.register',
     'notifications.view',
   ],
   DOCUMENT_OFFICER: [
     'dashboard.view',
     'documents.view', 'documents.receive',
-    'documents.track',
     'notifications.view',
   ],
 };
@@ -83,12 +104,12 @@ const ROLE_DEFINITIONS: Record<Role, { name: string; description: string }> = {
   DOCUMENT_ENCODER: {
     name: 'Document Encoder',
     description:
-      'Registers documents, uploads attachments, and maintains document metadata.',
+      'Registers documents, uploads attachments, and maintains document metadata. No access to Recipient Tracking.',
   },
   DOCUMENT_OFFICER: {
     name: 'Document Officer',
     description:
-      'Receives incoming documents and acknowledges receipt with user, office, date, and time.',
+      'Receives documents routed to their office and acknowledges receipt with user, office, date, and time. No access to Recipient Tracking.',
   },
 };
 
@@ -115,12 +136,15 @@ export class RolesService {
    */
   async effectivePermissions(roleId: string): Promise<string[]> {
     const role = this.toRoleId(roleId);
+    const reserved = new Set(restrictedPermissionsFor(role));
     const rows = await this.prisma.rolePermission.findMany({
       where: { role },
       select: { permission: true },
     });
     if (rows.length > 0) {
-      return rows.map(r => r.permission);
+      // Filter role-reserved permissions so a grant left over from before the
+      // restriction existed cannot be reported back to the client as active.
+      return rows.map(r => r.permission).filter(p => !reserved.has(p));
     }
     // Seed defaults only on a fresh database where no role has been configured
     // yet. An intentionally empty permission set must be honored, otherwise a
@@ -183,6 +207,18 @@ export class RolesService {
     const invalid = normalized.filter(p => !PERMISSION_CATALOG.includes(p));
     if (invalid.length > 0) {
       throw new BadRequestException(`Unknown permissions: ${invalid.join(', ')}`);
+    }
+
+    // Some permissions are reserved to specific roles. Rejecting them here
+    // keeps the Roles screen from handing out capabilities the API enforces
+    // by role (for example Recipient Tracking to an encoder or officer).
+    const forbidden = normalized.filter(
+      p => ROLE_RESTRICTED_PERMISSIONS[p]?.includes(role),
+    );
+    if (forbidden.length > 0) {
+      throw new ForbiddenException(
+        `${ROLE_DEFINITIONS[role].name} cannot be granted: ${forbidden.join(', ')}.`,
+      );
     }
 
     // The SYSTEM_ADMIN role must stay fully privileged. Rejecting removal of

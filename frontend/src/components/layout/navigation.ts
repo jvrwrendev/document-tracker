@@ -1,4 +1,5 @@
 ﻿import type { UserRole } from '@/types';
+import { RECIPIENT_TRACKING_ROLES } from '@/constants';
 
 export interface NavItem {
   id: string;
@@ -63,6 +64,10 @@ export const navigation: NavItem[] = [
     to: '/tracking',
     icon: 'Activity',
     section: 'workspace',
+    // Recipient Tracking is role-restricted: an encoder registers documents and
+    // an officer receives them, neither may monitor distribution.
+    permission: 'documents.track',
+    roles: RECIPIENT_TRACKING_ROLES,
   },
   {
     id: 'archive',

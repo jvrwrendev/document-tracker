@@ -31,6 +31,7 @@ import {
   DOCUMENT_CLASSIFICATION_LABELS,
   DOCUMENT_STATUS_LABELS,
   canTransition,
+  canTrackRecipients as canTrackRecipientsByRole,
 } from '@/constants';
 import { formatDate, formatRelative, cn } from '@/lib/utils';
 import { attachmentsService } from '@/features/documents/services/documents.service';
@@ -133,7 +134,12 @@ export function DocumentDetailPage() {
 
   const canDownload = doc.attachments.length > 0;
 
-  const canManageNotes = user.role === 'system_admin' || user.role === 'office_admin';
+  // Recipient Tracking is restricted to the administrative roles. Encoders and
+  // officers do not get the card, and the API additionally redacts other
+  // offices' recipient rows from their payloads.
+  const canTrackRecipients = canTrackRecipientsByRole(user.role);
+
+  const canManageNotes = canTrackRecipients;
 
   const confirmReceive = async (): Promise<void> => {
     const result = await receiveAction.receive(doc.id, {
@@ -196,15 +202,17 @@ export function DocumentDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 space-y-6">
           <DocumentTracker document={doc} />
-          <RecipientTracking
-            document={doc}
-            userById={userById}
-            canManageNotes={canManageNotes}
-            currentOfficeId={user.officeId}
-            noteError={recipientNote.error}
-            onSetNote={handleSetNote}
-            onDeleteNote={handleDeleteNote}
-          />
+          {canTrackRecipients && (
+            <RecipientTracking
+              document={doc}
+              userById={userById}
+              canManageNotes={canManageNotes}
+              currentOfficeId={user.officeId}
+              noteError={recipientNote.error}
+              onSetNote={handleSetNote}
+              onDeleteNote={handleDeleteNote}
+            />
+          )}
           <HistoryPanel document={doc} history={history} userById={userById} />
         </div>
 
@@ -219,6 +227,7 @@ export function DocumentDetailPage() {
             document={doc}
             office={office}
             isOverdue={!!isOverdue}
+            showRecipients={canTrackRecipients}
             onViewAttachment={(att: DocumentAttachment) =>
               void downloadAttachment(att.id)
             }
@@ -509,6 +518,7 @@ interface DocumentInfoSidebarProps {
   document: DocumentDetail;
   office: { code: string; name: string } | undefined;
   isOverdue: boolean;
+  showRecipients: boolean;
   onViewAttachment: (attachment: DocumentAttachment) => void;
   onDownloadAttachment: (id: string) => void;
 }
@@ -517,6 +527,7 @@ function DocumentInfoSidebar({
   document: d,
   office,
   isOverdue,
+  showRecipients,
   onViewAttachment,
   onDownloadAttachment,
 }: DocumentInfoSidebarProps) {
@@ -560,16 +571,18 @@ function DocumentInfoSidebar({
               d.source === 'internal' ? 'Internal' : `External${d.senderName ? ` Â· ${d.senderName}` : ''}`
             }
           />
-          <InfoLine
-            label="Recipients"
-            value={
-              d.destinationsAllOffices
-                ? 'All Offices'
-                : d.recipients.length > 0
-                  ? d.recipients.map(r => `${r.office.code} â€” ${r.office.name}`).join(', ')
-                  : 'â€”'
-            }
-          />
+          {showRecipients && (
+            <InfoLine
+              label="Recipients"
+              value={
+                d.destinationsAllOffices
+                  ? 'All Offices'
+                  : d.recipients.length > 0
+                    ? d.recipients.map(r => `${r.office.code} â€” ${r.office.name}`).join(', ')
+                    : 'â€”'
+              }
+            />
+          )}
           <InfoLine label="Created" value={formatDate(d.createdAt, true)} />
           <InfoLine label="Last updated" value={formatRelative(d.updatedAt)} />
         </ul>

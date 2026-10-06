@@ -18,7 +18,7 @@ import {
   RoleStat,
   UsersWithRole,
 } from '@/features/system-admin/roles-permissions/components';
-import type { Permission as PermissionKey } from '@/types';
+import type { Permission as PermissionKey, UserRole } from '@/types';
 
 export function RolesPermissionsPage() {
   const toast = useToast();
@@ -187,6 +187,7 @@ export function RolesPermissionsPage() {
                       onToggle={handleToggle}
                       canEdit={canEdit}
                       disabled={saving}
+                      selectedRole={selectedRole?.id as UserRole | undefined}
                     />
                   ))}
                 </div>

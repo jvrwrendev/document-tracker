@@ -10,7 +10,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { FilterDocumentsDto } from './dto/filter-documents.dto';
-import { TransitionDocumentDto } from './dto/transition-document.dto';
 import { ReceiveDocumentDto } from './dto/receive-document.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -21,7 +20,20 @@ import { NotificationsService } from '../notifications/notifications.service';
 //  - 'archived' is set by DocumentsAutoArchiveService after the retention window.
 // The legacy 'approved' / 'rejected' / 'released' statuses are retained only so
 // historical documents keep rendering; nothing can transition into them.
-const ACTIVE_WORKFLOW_STATUSES: DocumentStatus[] = ['registered', 'received'];
+
+// Recipient Tracking (per-office distribution and receipt monitoring) is a
+// supervisory feature. It is deliberately limited to these roles:
+//
+//   - SYSTEM_ADMIN / OFFICE_ADMIN  administrative oversight
+//   - DOCUMENT_OFFICER              receives only; must not monitor other offices
+//   - DOCUMENT_ENCODER              registers only; must not monitor distribution
+//
+// This allowlist is authoritative. It is intentionally *not* driven by the
+// editable `documents.track` permission, because re-granting that permission
+// through the Roles screen must never hand Recipient Tracking to a receiving
+// or encoding role. `documents.track` stays as the UI-facing permission that
+// mirrors this rule.
+export const RECIPIENT_TRACKING_ROLES: Role[] = [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN];
 
 export type DocumentTypeMeta = Prisma.DocumentTypeGetPayload<Record<string, never>>;
 
@@ -381,7 +393,17 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       this.prisma.document.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    const canTrack = await this.canTrackRecipients(actorId);
+    const visibleItems = canTrack
+      ? items
+      : await Promise.all(
+          items.map(async (item) => ({
+            ...item,
+            recipients: await this.visibleRecipients(item.recipients, actorId),
+          })),
+        );
+
+    return { items: visibleItems, total, page, pageSize };
   }
 
   async findOne(id: string, actorId?: string): Promise<DocumentDetailResponse> {
@@ -400,6 +422,10 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.deletedAt) throw new NotFoundException('Document not found');
     await this.assertRecipientVisibility(doc, actorId);
+    // Recipient rows are redacted for roles that may not use Recipient
+    // Tracking, so a receiving or encoding role never sees how the document
+    // was distributed to the other offices.
+    const recipients = await this.visibleRecipients(doc.recipients, actorId);
     const ids = Array.from(new Set([doc.encodedById, doc.receivedById, doc.approvedById, doc.releasedById, doc.currentHolderId].filter((value): value is string => !!value)));
     const users = ids.length
       ? await this.prisma.user.findMany({
@@ -420,6 +446,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
     const people = new Map(users.map(user => [user.id, this.toDocumentPerson(user)]));
     return {
       ...doc,
+      recipients,
       encodedBy: people.get(doc.encodedById) ?? null,
       receivedBy: doc.receivedById ? people.get(doc.receivedById) ?? null : null,
       approvedBy: doc.approvedById ? people.get(doc.approvedById) ?? null : null,
@@ -998,6 +1025,75 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       if (!Number.isNaN(n)) nextSeq = n + 1;
     }
     return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+  }
+
+  /**
+   * Whether the actor may use Recipient Tracking. Role-based by design so it
+   * cannot be widened by editing role permissions.
+   */
+  async canTrackRecipients(actorId?: string): Promise<boolean> {
+    if (!actorId) return false;
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true },
+    });
+    return !!actor && RECIPIENT_TRACKING_ROLES.includes(actor.role);
+  }
+
+  /**
+   * Recipient rows an actor is allowed to see on a document payload.
+   *
+   * Recipient Tracking roles get the full distribution. Everyone else gets at
+   * most their own office's row, which is what the receiving UI needs and is
+   * not distribution data.
+   */
+  private async visibleRecipients<T extends { officeId: string }>(
+    recipients: T[],
+    actorId?: string,
+  ): Promise<T[]> {
+    if (await this.canTrackRecipients(actorId)) return recipients;
+    if (!actorId) return [];
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { employee: { select: { officeId: true } } },
+    });
+    const officeId = actor?.employee?.officeId;
+    if (!officeId) return [];
+    return recipients.filter((r) => r.officeId === officeId);
+  }
+
+  /**
+   * Recipient Tracking data for one document. Restricted to the administrative
+   * roles above; everyone else gets 403 rather than a filtered result so the
+   * endpoint cannot be probed for existence.
+   */
+  async getRecipients(id: string, actorId: string): Promise<unknown> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        encodedById: true,
+        deletedAt: true,
+        destinationsAllOffices: true,
+        recipients: {
+          include: { office: { select: { id: true, name: true, code: true } } },
+          orderBy: { office: { name: 'asc' } },
+        },
+      },
+    });
+    if (!doc || doc.deletedAt) throw new NotFoundException('Document not found');
+
+    if (!(await this.canTrackRecipients(actorId))) {
+      throw new ForbiddenException('Recipient Tracking is not available for your role');
+    }
+
+    await this.assertRecipientVisibility(doc, actorId);
+    return {
+      documentId: doc.id,
+      destinationsAllOffices: doc.destinationsAllOffices,
+      recipients: doc.recipients,
+    };
   }
 
   /**

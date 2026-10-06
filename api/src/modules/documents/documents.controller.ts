@@ -118,6 +118,17 @@ export class DocumentsController {
     return this.documentsService.getHistory(id);
   }
 
+  @SkipThrottle()
+  @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('documents.track')
+  @Get(':id/recipients')
+  getRecipients(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.getRecipients(id, user.id);
+  }
+
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.DOCUMENT_OFFICER)
   @Permissions('documents.receive')
   @Audit('document.receive', 'documents', 'Document')

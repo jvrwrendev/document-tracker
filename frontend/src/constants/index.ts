@@ -40,8 +40,24 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   document_encoder:
     'Registers documents, uploads attachments, and maintains document metadata.',
   document_officer:
-    'Receives incoming documents and acknowledges receipt with user, office, date, and time.',
+    'Receives documents routed to their office and acknowledges receipt with user, office, date, and time.',
 };
+
+/**
+ * Roles allowed to use Recipient Tracking, which shows how a document was
+ * distributed to every receiving office and which of them acknowledged it.
+ *
+ * This mirrors RECIPIENT_TRACKING_ROLES in the API
+ * (api/src/modules/documents/documents.service.ts), which is the authoritative
+ * check: the endpoint returns 403 for everyone else regardless of what the UI
+ * renders. Kept in sync deliberately so the client hides the feature for
+ * exactly the roles the server rejects.
+ */
+export const RECIPIENT_TRACKING_ROLES: UserRole[] = ['system_admin', 'office_admin'];
+
+export function canTrackRecipients(role: UserRole | undefined | null): boolean {
+  return !!role && RECIPIENT_TRACKING_ROLES.includes(role);
+}
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   system_admin: [
@@ -69,13 +85,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   document_encoder: [
     'dashboard.view',
-    'documents.view', 'documents.create', 'documents.edit', 'documents.register', 'documents.track',
+    'documents.view', 'documents.create', 'documents.edit', 'documents.register',
     'notifications.view',
   ],
   document_officer: [
     'dashboard.view',
     'documents.view', 'documents.receive',
-    'documents.track',
     'notifications.view',
   ],
 };

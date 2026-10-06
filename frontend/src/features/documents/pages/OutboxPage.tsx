@@ -31,6 +31,7 @@ import {
   ALL_DOCUMENT_TYPES,
   DOCUMENT_STATUS_LABELS,
   DOCUMENT_TYPE_LABELS,
+  canTrackRecipients,
 } from '@/constants';
 import { usePagination } from '@/hooks/usePagination';
 import { Pagination } from '@/components/ui/Pagination';
@@ -59,6 +60,12 @@ export function OutboxPage() {
   const [scope, setScope] = useState<OutboxScope>(DEFAULT_FILTERS.scope);
   const [tab, setTab] = useState('active');
 
+  // Distribution and per-office receipt progress are Recipient Tracking data,
+  // so they are only rendered for the administrative roles. The API redacts
+  // other offices' recipients from encoders, which would otherwise surface as
+  // a misleading empty destination.
+  const canTrack = canTrackRecipients(user.role);
+
   const myOutbox = useMemo(() => {
     return documents.filter(d => {
       if (scope === 'originated') {
@@ -82,10 +89,13 @@ export function OutboxPage() {
       ['registered', 'received'].includes(d.status)
     ).length;
     const completed = myOutbox.filter(d => d.status === 'archived').length;
-    // Still awaiting a recipient office to receive it.
-    const actionRequired = myOutbox.filter(
-      d => d.status === 'registered' && d.recipients.some(r => r.status === 'pending')
-    ).length;
+    // Still awaiting a recipient office to receive it. Recipient-derived, so it
+    // is only meaningful for roles allowed to see distribution.
+    const actionRequired = canTrack
+      ? myOutbox.filter(
+          d => d.status === 'registered' && d.recipients.some(r => r.status === 'pending'),
+        ).length
+      : 0;
     return {
       all: myOutbox.length,
       active: inProgress,
@@ -167,12 +177,14 @@ export function OutboxPage() {
           value={counts.completed}
           accent="emerald"
         />
-        <OutboxStat
-          icon={<RotateCcw className="w-4 h-4" />}
-          label="Action Required"
-          value={counts.action}
-          accent="rose"
-        />
+        {canTrack && (
+          <OutboxStat
+            icon={<RotateCcw className="w-4 h-4" />}
+            label="Awaiting Receipt"
+            value={counts.action}
+            accent="rose"
+          />
+        )}
         <OutboxStat
           icon={<FileText className="w-4 h-4" />}
           label="Total Outgoing"
@@ -188,7 +200,9 @@ export function OutboxPage() {
             onChange={setTab}
             items={[
               { id: 'active', label: 'In Progress', count: counts.active },
-              { id: 'action', label: 'Awaiting Receipt', count: counts.action },
+              ...(canTrack
+                ? [{ id: 'action', label: 'Awaiting Receipt', count: counts.action }]
+                : []),
               { id: 'completed', label: 'Completed', count: counts.completed },
               { id: 'all', label: 'All', count: counts.all },
             ]}
@@ -301,52 +315,67 @@ export function OutboxPage() {
                 </div>
               ),
             },
-            {
-              key: 'route',
-              header: 'Route',
-              cell: d => {
-                const fromOffice = d.originatingOfficeId ? officeById(d.originatingOfficeId) : null;
-                const fromLabel = fromOffice?.code ?? d.originatingOfficeName;
-                const toLabel = d.destinationsAllOffices
-                  ? 'All Offices'
-                  : d.recipients.map(r => r.office.code).join(', ');
-                return (
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-mono text-slate-700 truncate max-w-[110px]">
-                      {fromLabel || '—'}
-                    </span>
-                    <ArrowRight className="w-3 h-3 text-slate-400" />
-                    <span className="font-mono text-slate-900 font-semibold truncate max-w-[110px]">
-                      {toLabel || '—'}
-                    </span>
-                  </div>
-                );
-              },
-            },
-            {
-              key: 'destination',
-              header: 'Destination',
-              cell: d => {
-                if (d.destinationsAllOffices)
-                  return (
-                    <span className="inline-flex text-xs font-medium text-slate-700">
-                      All Offices
-                    </span>
-                  );
-                if (d.recipients.length === 0)
-                  return <span className="text-xs text-slate-400">Not assigned</span>;
-                return (
-                  <div className="flex flex-col gap-0.5">
-                    {d.recipients.map(r => (
-                      <p key={r.officeId} className="text-xs text-slate-700 truncate max-w-[200px]">
-                        {r.office.code} — {r.office.name}
-                      </p>
-                    ))}
-                  </div>
-                );
-              },
-            },
+            ...(canTrack
+              ? [
+                  {
+                    key: 'route',
+                    header: 'Route',
+                    cell: (d: (typeof paged)[number]) => {
+                      const fromOffice = d.originatingOfficeId
+                        ? officeById(d.originatingOfficeId)
+                        : null;
+                      const fromLabel = fromOffice?.code ?? d.originatingOfficeName;
+                      const toLabel = d.destinationsAllOffices
+                        ? 'All Offices'
+                        : d.recipients.map(r => r.office.code).join(', ');
+                      return (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="font-mono text-slate-700 truncate max-w-[110px]">
+                            {fromLabel || '—'}
+                          </span>
+                          <ArrowRight className="w-3 h-3 text-slate-400" />
+                          <span className="font-mono text-slate-900 font-semibold truncate max-w-[110px]">
+                            {toLabel || '—'}
+                          </span>
+                        </div>
+                      );
+                    },
+                  },
+                ]
+              : []),
+            ...(canTrack
+              ? [
+                  {
+                    key: 'destination',
+                    header: 'Destination',
+                    cell: (d: (typeof paged)[number]) => {
+                      if (d.destinationsAllOffices)
+                        return (
+                          <span className="inline-flex text-xs font-medium text-slate-700">
+                            All Offices
+                          </span>
+                        );
+                      if (d.recipients.length === 0)
+                        return (
+                          <span className="text-xs text-slate-400">Not assigned</span>
+                        );
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          {d.recipients.map(r => (
+                            <p
+                              key={r.officeId}
+                              className="text-xs text-slate-700 truncate max-w-[200px]"
+                            >
+                              {r.office.code} — {r.office.name}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    },
+                  },
+                ]
+              : []),
             {
               key: 'encodedBy',
               header: 'Encoded By',

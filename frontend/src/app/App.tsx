@@ -29,6 +29,7 @@ import { RolesPermissionsPage } from '@/features/system-admin/roles-permissions/
 import { AuditLogsPage } from '@/features/system-admin/audit-logs/pages/AuditLogsPage';
 import { SettingsPage } from '@/features/profile/pages/SettingsPage';
 import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage';
+import { RECIPIENT_TRACKING_ROLES } from '@/constants';
 
 export function App() {
   return (
@@ -76,7 +77,14 @@ future={{
                   }
                 />
                 <Route path="/outbox" element={<OutboxPage />} />
-                <Route path="/tracking" element={<TrackingPage />} />
+                <Route
+                  path="/tracking"
+                  element={
+                    <ProtectedRoute roles={RECIPIENT_TRACKING_ROLES} permission="documents.track">
+                      <TrackingPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/archive"
                   element={

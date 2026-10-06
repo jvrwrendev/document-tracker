@@ -1,4 +1,5 @@
-import type { Permission } from '@/types';
+import type { Permission, UserRole } from '@/types';
+import { RECIPIENT_TRACKING_ROLES, ROLE_SHORT_LABELS } from '@/constants';
 
 export interface RoleSummary {
   id: string;
@@ -26,7 +27,7 @@ export interface RoleUser {
 export interface PermissionGroupMeta {
   label: string;
   iconName: string;
-  permissions: Array<{ key: Permission; label: string }>;
+  permissions: Array<{ key: Permission; label: string; restrictedTo?: UserRole[] }>;
 }
 
 export const PERMISSION_GROUPS: PermissionGroupMeta[] = [
@@ -48,7 +49,7 @@ export const PERMISSION_GROUPS: PermissionGroupMeta[] = [
       { key: 'documents.return', label: 'Return documents' },
       { key: 'documents.release', label: 'Release documents' },
       { key: 'documents.archive', label: 'Archive documents' },
-      { key: 'documents.track', label: 'Track documents' },
+      { key: 'documents.track', label: 'Track documents (Recipient Tracking)', restrictedTo: RECIPIENT_TRACKING_ROLES },
     ],
   },
   {

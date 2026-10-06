@@ -4,11 +4,13 @@ import {
   ShieldCheck,
   Users as UsersIcon,
   Check,
+  Lock,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ROLE_SHORT_LABELS } from '@/constants';
 import type { PermissionGroupMeta } from '@/features/system-admin/roles-permissions/types/role';
-import type { Permission } from '@/types';
+import type { Permission, UserRole } from '@/types';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   FileText,
@@ -22,9 +24,17 @@ interface PermissionGroupProps {
   onToggle: (permission: Permission) => void;
   canEdit: boolean;
   disabled?: boolean;
+  selectedRole?: UserRole;
 }
 
-export function PermissionGroup({ group, granted, onToggle, canEdit, disabled }: PermissionGroupProps) {
+export function PermissionGroup({
+  group,
+  granted,
+  onToggle,
+  canEdit,
+  disabled,
+  selectedRole,
+}: PermissionGroupProps) {
   const Icon = ICON_MAP[group.iconName] ?? ShieldCheck;
   const grantedCount = group.permissions.filter(p => granted.includes(p.key)).length;
 
@@ -44,6 +54,16 @@ export function PermissionGroup({ group, granted, onToggle, canEdit, disabled }:
       <ul className="divide-y divide-border">
         {group.permissions.map(perm => {
           const isGranted = granted.includes(perm.key);
+          // Some permissions are reserved to specific roles and are rejected
+          // by the API. Show that up front instead of letting the admin click
+          // Grant and get a 403.
+          const blockedHere =
+            !!selectedRole &&
+            !!perm.restrictedTo &&
+            !perm.restrictedTo.includes(selectedRole);
+          const restrictedToLabel = perm.restrictedTo
+            ?.map(r => ROLE_SHORT_LABELS[r])
+            .join(', ');
           return (
             <li
               key={perm.key}
@@ -58,21 +78,36 @@ export function PermissionGroup({ group, granted, onToggle, canEdit, disabled }:
                       : 'border-border bg-muted text-muted-foreground/40',
                   )}
                 >
-                  {isGranted && <Check className="h-3 w-3" />}
+                  {isGranted ? <Check className="h-3 w-3" /> : blockedHere ? (
+                    <Lock className="h-3 w-3" />
+                  ) : null}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{perm.label}</p>
-                  <p className="text-[11px] text-muted-foreground font-mono truncate">{perm.key}</p>
+                  <p className="text-[11px] text-muted-foreground font-mono truncate">
+                    {perm.key}
+                  </p>
+                  {blockedHere && (
+                    <p className="mt-0.5 text-[11px] text-amber-700">
+                      Restricted to {restrictedToLabel}
+                    </p>
+                  )}
                 </div>
               </div>
               {canEdit && (
                 <button
                   type="button"
                   onClick={() => onToggle(perm.key)}
-                  disabled={disabled}
+                  disabled={disabled || blockedHere}
+                  title={
+                    blockedHere
+                      ? `Recipient Tracking is restricted to ${restrictedToLabel}.`
+                      : undefined
+                  }
                   className={cn(
                     'shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md border transition-colors',
                     disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
+                    blockedHere && 'opacity-40 cursor-not-allowed pointer-events-none',
                     isGranted
                       ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                       : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',

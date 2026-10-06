@@ -29,7 +29,7 @@ const sections: Array<{ key: 'main' | 'workspace' | 'personal' | 'admin'; label:
 const sectionOrder = sections.map(s => s.key);
 
 export function LayoutSidebar() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { unreadCount } = useUnreadNotifications(true);
   const location = useLocation();
 
@@ -39,8 +39,12 @@ export function LayoutSidebar() {
     location.pathname === to || location.pathname.startsWith(`${to}/`);
 
   const filteredNav = navigation.filter(item => {
-    if (!item.roles) return true;
-    return item.roles.includes(user.role);
+    if (item.roles && !item.roles.includes(user.role)) return false;
+    // Honour the permission gate too: role and permission can be revoked
+    // independently, and a nav entry must not advertise a page the user
+    // cannot open.
+    if (item.permission && !hasPermission(item.permission as never)) return false;
+    return true;
   });
 
   return (
