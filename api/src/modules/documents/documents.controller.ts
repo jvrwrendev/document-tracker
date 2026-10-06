@@ -18,7 +18,6 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { FilterDocumentsDto } from './dto/filter-documents.dto';
 import { CheckDocumentNumberDto } from './dto/check-document-number.dto';
-import { TransitionDocumentDto } from './dto/transition-document.dto';
 import { ReceiveDocumentDto } from './dto/receive-document.dto';
 import { SetRecipientNoteDto } from './dto/set-recipient-note.dto';
 import { DeleteAllDocumentsDto } from './dto/delete-all-documents.dto';
@@ -47,8 +46,11 @@ export class DocumentsController {
   @SkipThrottle()
   @Permissions('documents.view')
   @Get()
-  findAll(@Query() filter: FilterDocumentsDto) {
-    return this.documentsService.findAll(filter);
+  findAll(
+    @Query() filter: FilterDocumentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.findAll(filter, user.id);
   }
 
   @SkipThrottle()
@@ -73,8 +75,11 @@ export class DocumentsController {
   @SkipThrottle()
   @Permissions('documents.view')
   @Get(':id')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.documentsService.findOne(id);
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.findOne(id, user.id);
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN, ROLES.DOCUMENT_ENCODER)
@@ -104,18 +109,6 @@ export class DocumentsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.documentsService.remove(id, user.id);
-  }
-
-  @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN, ROLES.DOCUMENT_OFFICER)
-  @Post(':id/transition')
-  @HttpCode(HttpStatus.OK)
-  @Audit('document.transition', 'documents', 'Document')
-  transition(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: TransitionDocumentDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.documentsService.transition(id, dto, user.id);
   }
 
   @SkipThrottle()

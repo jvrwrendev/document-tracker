@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { ToastProvider } from '@/hooks/useToast';
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog';
@@ -15,10 +15,8 @@ import { DocumentDetailPage } from '@/features/documents/pages/DocumentDetailPag
 import { DocumentRegistrationPage } from '@/features/documents/pages/DocumentRegistrationPage';
 import { InboxPage } from '@/features/documents/pages/InboxPage';
 import { OutboxPage } from '@/features/documents/pages/OutboxPage';
-import { ApprovalPage } from '@/features/documents/pages/ApprovalPage';
-import { ReleasePage } from '@/features/documents/pages/ReleasePage';
-import { TrackingPage } from '@/features/documents/pages/TrackingPage';
 import { ArchivePage } from '@/features/documents/pages/ArchivePage';
+import { TrackingPage } from '@/features/documents/pages/TrackingPage';
 import { UsersPage } from '@/features/system-admin/users/pages/UsersPage';
 import { AddUserPage } from '@/features/system-admin/users/pages/AddUserPage';
 import { EditUserPage } from '@/features/system-admin/users/pages/EditUserPage';
@@ -78,22 +76,6 @@ future={{
                   }
                 />
                 <Route path="/outbox" element={<OutboxPage />} />
-                <Route
-                  path="/review"
-                  element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
-                      <ApprovalPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/release"
-                  element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
-                      <ReleasePage />
-                    </ProtectedRoute>
-                  }
-                />
                 <Route path="/tracking" element={<TrackingPage />} />
                 <Route
                   path="/archive"

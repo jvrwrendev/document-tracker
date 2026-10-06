@@ -219,38 +219,38 @@ export function StepperNavigation({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 pt-4 border-t border-slate-200',
+        'flex items-center justify-end gap-2 pt-4 border-t border-slate-200',
         className,
       )}
     >
       <Button
-        variant="outline"
+        variant="ghost"
         onClick={onBack}
         disabled={!canGoBack || isSubmitting}
         type="button"
+        className="text-slate-600 hover:text-slate-900"
       >
         {backLabel}
       </Button>
-      <div className="flex items-center gap-2">
-        {!isLastStep ? (
-          <Button
-            onClick={onNext}
-            disabled={isNextDisabled || isSubmitting}
-            type="button"
-          >
-            {nextLabel}
-          </Button>
-        ) : (
-          <Button
-            onClick={onSubmit}
-            loading={isSubmitting}
-            disabled={isSubmitDisabled || isSubmitting}
-            type="button"
-          >
-            {submitLabel}
-          </Button>
-        )}
-      </div>
+      {!isLastStep ? (
+        <Button
+          onClick={onNext}
+          disabled={isNextDisabled || isSubmitting}
+          type="button"
+          className="w-[100px]"
+        >
+          {nextLabel}
+        </Button>
+      ) : (
+        <Button
+          onClick={onSubmit}
+          loading={isSubmitting}
+          disabled={isSubmitDisabled || isSubmitting}
+          type="button"
+        >
+          {submitLabel}
+        </Button>
+      )}
     </div>
   );
 }

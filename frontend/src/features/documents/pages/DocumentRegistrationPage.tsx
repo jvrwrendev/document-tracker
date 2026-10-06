@@ -373,11 +373,11 @@ export function DocumentRegistrationPage() {
     const accepted: File[] = [];
     arr.forEach(f => {
       if (f.size > MAX_FILE_SIZE) {
-        toast.error('File too large', $f.name + ' exceeds 25MB limit.');
+        toast.error('File too large', f.name + ' exceeds 25MB limit.');
         return;
       }
       if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|webp)$/i)) {
-        toast.error('Unsupported file', $f.name + ' is not a supported format.');
+        toast.error('Unsupported file', f.name + ' is not a supported format.');
         return;
       }
       accepted.push(f);
@@ -879,7 +879,7 @@ export function DocumentRegistrationPage() {
                       {docNumberCheck.existing ? (
                         <button
                           type="button"
-                          onClick={() => navigate(/documents/)}
+                          onClick={() => navigate(`/documents/${docNumberCheck.existing!.id}`)}
                           className="underline font-medium hover:text-rose-800"
                         >
                           {docNumberCheck.existing.trackingNumber}

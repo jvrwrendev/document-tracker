@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -15,37 +15,13 @@ import { ReceiveDocumentDto } from './dto/receive-document.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
-const ALLOWED_TRANSITIONS: Record<DocumentStatus, DocumentStatus[]> = {
-  // 'received' is NOT a manual transition: documents become received only
-  // when every designated recipient office has received (per-office action).
-  registered: [],
-  received: ['approved', 'rejected'],
-  approved: ['released'],
-  rejected: ['archived'],
-  released: ['archived'],
-  archived: [],
-};
-
-// Which roles may perform each status transition (SYSTEM_ADMIN is superuser).
-const TRANSITION_ROLES: Record<DocumentStatus, Role[]> = {
-  registered: [Role.SYSTEM_ADMIN, Role.DOCUMENT_ENCODER],
-  received: [Role.SYSTEM_ADMIN, Role.DOCUMENT_OFFICER],
-  approved: [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
-  rejected: [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
-  released: [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
-  archived: [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
-};
-
-// Persisted permission required for each target status. If a role's granted
-// permissions were revoked, the transition is rejected with 403.
-const TRANSITION_PERMISSIONS: Record<DocumentStatus, string> = {
-  registered: 'documents.register',
-  received: 'documents.receive',
-  approved: 'documents.approve',
-  rejected: 'documents.reject',
-  released: 'documents.release',
-  archived: 'documents.archive',
-};
+// Workflow: REGISTERED -> RECEIVED -> ARCHIVED.
+// No status is ever changed by a manual user transition:
+//  - 'received' is set by the per-office receiving action.
+//  - 'archived' is set by DocumentsAutoArchiveService after the retention window.
+// The legacy 'approved' / 'rejected' / 'released' statuses are retained only so
+// historical documents keep rendering; nothing can transition into them.
+const ACTIVE_WORKFLOW_STATUSES: DocumentStatus[] = ['registered', 'received'];
 
 export type DocumentTypeMeta = Prisma.DocumentTypeGetPayload<Record<string, never>>;
 
@@ -172,13 +148,22 @@ export class DocumentsService {
         ? await this.generateManualDocumentNumber()
         : await this.suggestDocumentNumber(dto.originatingOfficeId!));
 
-    const destinationsAllOffices = dto.destinationsAllOffices ?? true;
+    // "All offices" must be explicit. Omitting the flag defaults to a scoped
+// distribution, so an unselected office can never become a recipient.
+const destinationsAllOffices = dto.destinationsAllOffices === true;
     const recipientOfficeIds = (dto.recipientOfficeIds ?? []).filter((id) => !!id);
 
     // Validation: cannot target both "all offices" and specific offices.
     if (destinationsAllOffices && recipientOfficeIds.length > 0) {
       throw new BadRequestException(
         'Cannot specify recipient offices when the document is sent to all offices.',
+      );
+    }
+
+    // A document must always have at least one destination.
+    if (!destinationsAllOffices && recipientOfficeIds.length === 0) {
+      throw new BadRequestException(
+        'Select at least one recipient office, or explicitly send the document to all offices.',
       );
     }
 
@@ -308,7 +293,10 @@ export class DocumentsService {
     return recipientOfficeIds;
   }
 
-  async findAll(filter: FilterDocumentsDto): Promise<PaginatedResult<DocumentListItem>> {
+  async findAll(
+    filter: FilterDocumentsDto,
+    actorId?: string,
+  ): Promise<PaginatedResult<DocumentListItem>> {
     const {
       page,
       pageSize,
@@ -362,6 +350,16 @@ export class DocumentsService {
         },
       };
     }
+
+    // Recipient-only access: a document officer may only ever list documents
+    // addressed to their own office (or ones they registered themselves).
+    const visibilityScope = await this.buildRecipientVisibilityScope(actorId);
+    if (visibilityScope) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        visibilityScope,
+      ];
+    }
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = new Date(dateFrom);
@@ -386,7 +384,7 @@ export class DocumentsService {
     return { items, total, page, pageSize };
   }
 
-  async findOne(id: string): Promise<DocumentDetailResponse> {
+  async findOne(id: string, actorId?: string): Promise<DocumentDetailResponse> {
     const doc = await this.prisma.document.findUnique({
       where: { id },
       include: {
@@ -401,6 +399,7 @@ export class DocumentsService {
     });
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.deletedAt) throw new NotFoundException('Document not found');
+    await this.assertRecipientVisibility(doc, actorId);
     const ids = Array.from(new Set([doc.encodedById, doc.receivedById, doc.approvedById, doc.releasedById, doc.currentHolderId].filter((value): value is string => !!value)));
     const users = ids.length
       ? await this.prisma.user.findMany({
@@ -530,6 +529,11 @@ export class DocumentsService {
       });
 
       if (nextRecipientIds !== null) {
+        if (nextRecipientIds.length === 0) {
+          throw new BadRequestException(
+            'Select at least one recipient office, or explicitly send the document to all offices.',
+          );
+        }
         // Replace the recipient set with the resolved (materialized) list.
         await tx.documentRecipient.deleteMany({ where: { documentId: id } });
         if (nextRecipientIds.length > 0) {
@@ -562,7 +566,7 @@ export class DocumentsService {
   /**
    * Soft-deletes every active document. Restricted to SYSTEM_ADMIN by the
    * controller. Related records (recipients, routing, reviews, releases,
-   * trackings, archives, history, attachments) are left intact — they remain
+   * trackings, archives, history, attachments) are left intact â€” they remain
    * attached to the hidden document, so no orphaned records are created.
    */
   async removeAll(actorId: string): Promise<{ deletedCount: number }> {
@@ -573,125 +577,6 @@ export class DocumentsService {
     return { deletedCount: result.count };
   }
 
-  async transition(
-    id: string,
-    dto: TransitionDocumentDto,
-    actorId: string,
-  ): Promise<unknown> {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
-    if (!doc) throw new NotFoundException('Document not found');
-    if (doc.deletedAt) throw new NotFoundException('Document not found');
-
-    const allowed = ALLOWED_TRANSITIONS[doc.status] ?? [];
-    if (!allowed.includes(dto.toStatus)) {
-      throw new BadRequestException(
-        `Cannot transition from ${doc.status} to ${dto.toStatus}`,
-      );
-    }
-
-    const actor = await this.prisma.user.findUnique({
-      where: { id: actorId },
-      select: { role: true, employee: { select: { officeId: true } } },
-    });
-    const permittedRoles = TRANSITION_ROLES[dto.toStatus] ?? [];
-    if (!actor || !permittedRoles.includes(actor.role)) {
-      throw new ForbiddenException(
-        `Your role is not permitted to move documents to ${dto.toStatus}`,
-      );
-    }
-
-    // Enforce the persisted permission for the target status (SYSTEM_ADMIN
-    // bypasses, matching the superuser convention used across the module).
-    const requiredPermission = TRANSITION_PERMISSIONS[dto.toStatus];
-    if (requiredPermission && actor.role !== Role.SYSTEM_ADMIN) {
-      const granted = await this.prisma.rolePermission.count({
-        where: { role: actor.role, permission: requiredPermission },
-      });
-      if (granted === 0) {
-        throw new ForbiddenException(
-          `Your role does not have permission to move documents to ${dto.toStatus}`,
-        );
-      }
-    }
-
-    await this.assertOfficeOwnership(actorId, doc);
-
-    return this.prisma.$transaction(async (tx) => {
-      const now = new Date();
-      const updated = await tx.document.update({
-        where: { id },
-        data: {
-          status: dto.toStatus,
-          currentOfficeId: dto.currentOfficeId ?? doc.currentOfficeId,
-          currentHolderId: dto.currentHolderId ?? doc.currentHolderId,
-          ...(dto.toStatus === 'approved'
-            ? { approvedById: actorId, approvedAt: now, approvedRemarks: dto.remarks }
-            : {}),
-          ...(dto.toStatus === 'released'
-            ? { releasedById: actorId, releasedAt: now, releasedRemarks: dto.remarks }
-            : {}),
-        },
-      });
-      await tx.documentHistory.create({
-        data: {
-          documentId: id,
-          fromStatus: doc.status,
-          toStatus: dto.toStatus,
-          actorId,
-          remarks: dto.remarks,
-        },
-      });
-      await tx.documentTracking.create({
-        data: {
-          documentId: id,
-          actorId,
-          event: 'status.transition',
-          payload: { from: doc.status, to: dto.toStatus, remarks: dto.remarks ?? null } as Prisma.InputJsonValue,
-        },
-      });
-
-      // Record approval / rejection / release actions for audit parity.
-      if (dto.toStatus === 'approved' || dto.toStatus === 'rejected') {
-        await tx.documentReview.create({
-          data: {
-            documentId: id,
-            reviewerId: actorId,
-            action: dto.toStatus,
-            remarks: dto.remarks,
-          },
-        });
-      }
-      if (dto.toStatus === 'released') {
-        await tx.documentRelease.create({
-          data: {
-            documentId: id,
-            releasedById: actorId,
-            method: 'hand_delivery',
-            notes: dto.remarks,
-          },
-        });
-      }
-
-      return updated;
-    }).then(async (updated) => {
-      // Notifications (outside the transaction; never blocks the workflow)
-      const title = `${doc.trackingNumber} · ${doc.title}`;
-      switch (dto.toStatus) {
-        case 'approved':
-          this.notify(doc.encodedById, 'Document approved', `${title} was approved.`);
-          break;
-        case 'rejected':
-          this.notify(doc.encodedById, 'Document rejected', dto.remarks ? `${title} was rejected: ${dto.remarks}` : `${title} was rejected.`);
-          break;
-        case 'released':
-          this.notify(doc.encodedById, 'Document released', `${title} was released.`);
-          break;
-        default:
-          break;
-      }
-      return updated;
-    });
-  }
 
   /**
    * Per-office receiving action. Only a user belonging to a designated
@@ -741,9 +626,9 @@ export class DocumentsService {
       throw new BadRequestException('Authenticated user has no assigned office');
     }
 
-    if (['released', 'archived', 'rejected'].includes(doc.status)) {
+    if (doc.status === 'archived') {
       throw new BadRequestException(
-        'Cannot receive a document that has already been finalized',
+        'Cannot receive a document that has already been archived',
       );
     }
 
@@ -788,7 +673,7 @@ export class DocumentsService {
 
       // Auto-advance the document once at least one recipient office has
       // received it. Per-recipient receiving continues independently after
-      // this point — other offices can still mark themselves as received.
+      // this point â€” other offices can still mark themselves as received.
       let advanced = false;
       if (doc.status === 'registered') {
         await tx.document.update({
@@ -823,13 +708,11 @@ export class DocumentsService {
     });
 
     // Notifications (outside the transaction; never blocks the workflow).
-    const title = `${doc.trackingNumber} · ${doc.title}`;
+    const title = `${doc.trackingNumber} Â· ${doc.title}`;
     this.notify(
       doc.encodedById,
       'Document received',
-      result.advanced
-        ? `${title} was received by ${result.officeName}. Approval and release can now proceed.`
-        : `${title} was received by ${result.officeName}.`,
+      `${title} was received by ${result.officeName}.`,
     );
 
     return {
@@ -946,9 +829,9 @@ export class DocumentsService {
     // the workflow, and is enforced server-side regardless of the client.
     const authorName = await this.recipientNoteAuthorName(noteAuthorId);
     const preview =
-      note.length > 140 ? `${note.slice(0, 137).trimEnd()}…` : note;
+      note.length > 140 ? `${note.slice(0, 137).trimEnd()}â€¦` : note;
     const message =
-      `${doc.trackingNumber} · ${doc.title} — note for ${updated.office.name}` +
+      `${doc.trackingNumber} Â· ${doc.title} â€” note for ${updated.office.name}` +
       ` (${updated.office.code}) by ${authorName}: "${preview}"`;
     void this.notifyAllActiveUsers(
       recipient.note ? 'Recipient note updated' : 'New recipient note',
@@ -1115,6 +998,81 @@ export class DocumentsService {
       if (!Number.isNaN(n)) nextSeq = n + 1;
     }
     return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+  }
+
+  /**
+   * Build a `where` clause restricting a list query to documents the actor's
+   * office may see. Returns `null` for SYSTEM_ADMIN and for the encoder's own
+   * broad list, where no restriction applies.
+   */
+  private async buildRecipientVisibilityScope(
+    actorId?: string,
+  ): Promise<Prisma.DocumentWhereInput | null> {
+    if (!actorId) return null;
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: {
+        role: true,
+        employee: { select: { officeId: true } },
+      },
+    });
+    if (!actor) return null;
+    if (actor.role === Role.SYSTEM_ADMIN || actor.role === Role.DOCUMENT_ENCODER) {
+      return null;
+    }
+
+    const officeId = actor.employee?.officeId;
+    if (!officeId) {
+      // No office assigned: fall back to documents the person created.
+      return { encodedById: actorId };
+    }
+
+    return {
+      OR: [
+        { encodedById: actorId },
+        { recipients: { some: { officeId } } },
+      ],
+    };
+  }
+
+  /**
+   * Recipient-only visibility.
+   *
+   * A document is visible to an office only when that office was selected
+   * during registration, i.e. it has a materialized `DocumentRecipient` row.
+   * The encoder who registered it keeps access, and SYSTEM_ADMIN can always
+   * inspect anything.
+   */
+  private async assertRecipientVisibility(
+    doc: {
+      id: string;
+      encodedById: string;
+      recipients: { officeId: string }[];
+    },
+    actorId?: string,
+  ): Promise<void> {
+    if (!actorId) return;
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: {
+        role: true,
+        employee: { select: { officeId: true } },
+      },
+    });
+    if (!actor) return;
+    if (actor.role === Role.SYSTEM_ADMIN) return;
+    if (doc.encodedById === actorId) return;
+
+    const officeId = actor.employee?.officeId;
+    const isRecipient = officeId
+      ? doc.recipients.some((r) => r.officeId === officeId)
+      : false;
+
+    if (!isRecipient) {
+      throw new NotFoundException('Document not found');
+    }
   }
 
   /**

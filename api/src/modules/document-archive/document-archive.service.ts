@@ -13,37 +13,7 @@ export class DocumentArchiveService {
     const doc = await this.prisma.document.findFirst({ where: { id: dto.documentId, deletedAt: null } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    const allowed = ['released', 'rejected'];
-    if (!allowed.includes(doc.status)) {
-      throw new BadRequestException(
-        `Cannot archive document in status ${doc.status}`,
-      );
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const archive = await tx.documentArchive.create({
-        data: {
-          documentId: dto.documentId,
-          archivedById,
-          location: dto.location,
-          retentionUntil: dto.retentionUntil ? new Date(dto.retentionUntil) : null,
-        },
-      });
-      await tx.document.update({
-        where: { id: dto.documentId },
-        data: { status: 'archived' },
-      });
-      await tx.documentHistory.create({
-        data: {
-          documentId: dto.documentId,
-          fromStatus: doc.status,
-          toStatus: 'archived',
-          actorId: archivedById,
-          remarks: dto.notes ?? 'Document archived',
-        },
-      });
-      return archive;
-    });
+    throw new BadRequestException('Manual archiving is not supported. Documents are archived automatically after 7 days.');
   }
 
   async findAll(filter: FilterArchivesDto): Promise<PaginatedResult<unknown>> {

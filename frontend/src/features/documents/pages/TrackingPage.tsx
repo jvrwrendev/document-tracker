@@ -3,95 +3,97 @@ import { Link } from 'react-router-dom';
 import {
   Building2,
   CheckCircle2,
-  Clock,
   AlertCircle,
-  ArrowRight,
-  ArrowUpRight,
   RotateCcw,
   SlidersHorizontal,
   FileText,
   Activity,
   Inbox,
-  CircleDot,
-  MapPin,
+  User as UserIcon,
+  Calendar,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
+import { Table } from '@/components/ui/Table';
 import { Select } from '@/components/ui/Select';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
-import { Avatar } from '@/components/ui/Avatar';
-import { Separator } from '@/components/ui/separator';
-import { StatusBadge, PriorityBadge } from '@/components/ui/StatusBadge';
+import { Pagination } from '@/components/ui/Pagination';
+import { StatusBadge, PriorityBadge, ClassificationBadge } from '@/components/ui/StatusBadge';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
 import { useOfficeLookup, useUserLookup } from '@/hooks/useLookups';
 import {
   ALL_DOCUMENT_STATUSES,
-  ALLOWED_TRANSITIONS,
   DOCUMENT_STATUS_LABELS,
-  DOCUMENT_WORKFLOW,
+  DOCUMENT_TYPE_LABELS,
 } from '@/constants';
 import { formatRelative, cn, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
-import type { DocumentListItem, DocumentStatus } from '@/features/documents/types/document';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import type { DocumentListItem } from '@/features/documents/types/document';
 
 const DEFAULT_FILTERS = {
   search: '',
   status: 'all',
 };
 
-const PRIORITY_ORDER: Record<string, number> = {
-  urgent: 0, high: 1, normal: 2, low: 3,
-};
+const TERMINAL_STATUSES = ['archived'];
 
-const TERMINAL_COMPLETE_STATUSES = ['released', 'archived', 'rejected'];
+function isTerminal(status: string): boolean {
+  return TERMINAL_STATUSES.includes(status);
+}
 
-function lifecycleProgress(status: string): number {
-  if (TERMINAL_COMPLETE_STATUSES.includes(status)) return 100;
-  const idx = DOCUMENT_WORKFLOW.indexOf(status as DocumentStatus);
-  if (idx < 0) return 0;
-  return Math.min(Math.round(((idx + 1) / DOCUMENT_WORKFLOW.length) * 100), 99);
+function isOverdueDoc(doc: DocumentListItem): boolean {
+  if (!doc.dueDate) return false;
+  if (isTerminal(doc.status)) return false;
+  return new Date(doc.dueDate).getTime() < Date.now();
 }
 
 export function TrackingPage() {
   const toast = useToast();
-  const { items: documents } = useDocuments({ pageSize: 100 });
+  const { items: documents } = useDocuments({ fetchAll: true });
   const officeById = useOfficeLookup();
   const userById = useUserLookup();
   const [search, setSearch] = useState(DEFAULT_FILTERS.search);
   const [statusFilter, setStatusFilter] = useState(DEFAULT_FILTERS.status);
 
+  const { sortKey, sortDirection, toggleSort, sortFn } = useTableSort<DocumentListItem>({
+    initialKey: 'updatedAt',
+    initialDirection: 'desc',
+  });
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return documents
-      .filter(d => {
-        if (statusFilter !== 'all' && d.status !== statusFilter) return false;
-        if (q) {
-          const haystack = `${d.trackingNumber} ${d.title} ${d.senderName ?? ''} ${d.tags.join(' ')}`.toLowerCase();
-          if (!haystack.includes(q)) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const p = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
-        if (p !== 0) return p;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
+    return documents.filter(d => {
+      if (statusFilter !== 'all' && d.status !== statusFilter) return false;
+      if (q) {
+        const haystack = `${d.trackingNumber} ${d.title} ${d.senderName ?? ''} ${d.tags.join(' ')}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
   }, [documents, search, statusFilter]);
+
+  const sorted = useMemo(() => sortFn(filtered), [sortFn, filtered]);
+
+  const pagination = usePagination({ totalItems: sorted.length, initialPageSize: 10 });
+  const paged = useMemo(
+    () => sorted.slice(pagination.start, pagination.end),
+    [sorted, pagination.start, pagination.end],
+  );
 
   const stats = useMemo(() => {
     const active = documents.filter(d =>
-      ['registered', 'received', 'approved'].includes(d.status)
+      ['registered', 'received'].includes(d.status)
     ).length;
-    const completed = documents.filter(d => d.status === 'released' || d.status === 'archived').length;
-    const overdue = documents.filter(d => {
-      if (!d.dueDate) return false;
-      if (d.status === 'released' || d.status === 'archived' || d.status === 'rejected') return false;
-      return new Date(d.dueDate).getTime() < new Date().getTime();
-    }).length;
-    const inMyQueue = documents.filter(d => d.currentHolderId).length;
-    return { active, completed, overdue, inMyQueue };
+    const completed = documents.filter(d => d.status === 'archived').length;
+    const overdue = documents.filter(isOverdueDoc).length;
+    const awaitingReceipt = documents.filter(
+      d => d.status === 'registered' && d.recipients.some(r => r.status === 'pending')
+    ).length;
+    return { active, completed, overdue, awaitingReceipt };
   }, [documents]);
 
   const hasActiveFilters =
@@ -100,20 +102,35 @@ export function TrackingPage() {
   const resetFilters = () => {
     setSearch(DEFAULT_FILTERS.search);
     setStatusFilter(DEFAULT_FILTERS.status);
+    pagination.reset();
     toast.info('Filters reset', 'Showing all tracked documents.');
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Document Tracking"
-        description="Real-time overview of every document across your workflow"
+        description="Follow every document through Registered, Received, and Archived"
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard label="In Transit" value={stats.active} icon={<Activity className="w-4 h-4" />} />
-        <StatCard label="Awaiting Action" value={stats.inMyQueue} icon={<Inbox className="w-4 h-4" />} />
-        <StatCard label="Completed" value={stats.completed} icon={<CheckCircle2 className="w-4 h-4" />} tone="success" />
+        <StatCard
+          label="In Transit"
+          value={stats.active}
+          icon={<Activity className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Awaiting Receipt"
+          value={stats.awaitingReceipt}
+          icon={<Inbox className="w-4 h-4" />}
+          hint={stats.awaitingReceipt > 0 ? 'Offices have not received' : undefined}
+        />
+        <StatCard
+          label="Archived"
+          value={stats.completed}
+          icon={<CheckCircle2 className="w-4 h-4" />}
+          tone="success"
+        />
         <StatCard
           label="Overdue"
           value={stats.overdue}
@@ -138,15 +155,18 @@ export function TrackingPage() {
               )}
             </div>
             <span className="text-sm text-muted-foreground shrink-0">
-              <span className="font-semibold text-foreground tabular-nums">{filtered.length}</span>{' '}
-              {filtered.length === 1 ? 'result' : 'results'}
+              <span className="font-semibold text-foreground tabular-nums">{sorted.length}</span>{' '}
+              {sorted.length === 1 ? 'result' : 'results'}
             </span>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-3">
             <SearchInput
               value={search}
-              onChange={setSearch}
+              onChange={v => {
+                setSearch(v);
+                pagination.reset();
+              }}
               placeholder="Search by tracking #, title, sender, or tags…"
               className="flex-1 min-w-0"
             />
@@ -154,7 +174,10 @@ export function TrackingPage() {
               <Select
                 aria-label="Filter by status"
                 value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
+                onChange={e => {
+                  setStatusFilter(e.target.value);
+                  pagination.reset();
+                }}
                 className="h-10 w-full sm:w-44"
                 options={[
                   { value: 'all', label: 'All Status' },
@@ -174,29 +197,208 @@ export function TrackingPage() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="p-10">
-            <EmptyState
-              icon={<FileText className="w-7 h-7" />}
-              title="No documents to track"
-              description="Adjust your filters or check back later."
-              action={
-                hasActiveFilters ? (
-                  <Button variant="outline" onClick={resetFilters}>
-                    Reset Filters
-                  </Button>
-                ) : null
-              }
+        <div className="p-3 sm:p-4">
+          <Table
+            data={paged}
+            keyExtractor={d => d.id}
+            sortKey={String(sortKey ?? '')}
+            sortDirection={sortDirection}
+            onSort={k => toggleSort(k as keyof DocumentListItem)}
+            rowClassName={d => (isOverdueDoc(d) ? 'bg-rose-50/40' : '')}
+            emptyState={
+              <EmptyState
+                icon={<FileText className="w-7 h-7" />}
+                title="No documents to track"
+                description={
+                  hasActiveFilters
+                    ? 'No documents match your current search and filters.'
+                    : 'There are no documents in the system yet.'
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button variant="outline" onClick={resetFilters}>
+                      Reset Filters
+                    </Button>
+                  ) : null
+                }
+              />
+            }
+            columns={[
+              {
+                key: 'trackingNumber',
+                header: 'Tracking #',
+                width: '150px',
+                sortable: true,
+                cell: d => (
+                  <Link
+                    to={`/documents/${d.id}`}
+                    className="font-mono font-semibold text-brand-700 hover:underline"
+                  >
+                    {d.trackingNumber}
+                  </Link>
+                ),
+              },
+              {
+                key: 'title',
+                header: 'Document',
+                sortable: true,
+                cell: d => (
+                  <div className="min-w-0">
+                    <Link
+                      to={`/documents/${d.id}`}
+                      className="font-medium text-slate-900 hover:text-brand-700 line-clamp-1"
+                    >
+                      {d.title}
+                    </Link>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[11px] text-slate-500">
+                        {DOCUMENT_TYPE_LABELS[d.type]}
+                      </span>
+                      <span className="text-slate-300">·</span>
+                      <ClassificationBadge classification={d.classification} />
+                      <PriorityBadge priority={d.priority} />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                width: '130px',
+                sortable: true,
+                cell: d => <StatusBadge status={d.status} />,
+              },
+              {
+                key: 'recipients',
+                header: 'Receiving',
+                width: '175px',
+                cell: d => <RecipientProgress doc={d} />,
+              },
+              {
+                key: 'currentOfficeId',
+                header: 'Current Office',
+                width: '170px',
+                cell: d => {
+                  const office = officeById(d.currentOfficeId);
+                  return (
+                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-slate-700 truncate">{office?.name ?? d.currentOfficeId}</p>
+                        <p className="text-slate-400 font-mono text-[10px]">
+                          {office?.code ?? d.currentOfficeId}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: 'currentHolderId',
+                header: 'Holder',
+                width: '160px',
+                cell: d => {
+                  const holder = d.currentHolderId ? userById(d.currentHolderId) : null;
+                  if (!holder) return <span className="text-xs text-slate-400">Unassigned</span>;
+                  return (
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-xs text-slate-700 truncate">{holder.fullName}</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: 'dueDate',
+                header: 'Due',
+                width: '120px',
+                sortable: true,
+                cell: d => {
+                  const overdue = isOverdueDoc(d);
+                  if (!d.dueDate) {
+                    return <span className="text-xs text-slate-400">No deadline</span>;
+                  }
+                  return (
+                    <div className="text-xs">
+                      <p className={cn('whitespace-nowrap', overdue ? 'text-rose-600 font-medium' : 'text-slate-700')}>
+                        {formatDate(d.dueDate, true)}
+                      </p>
+                      {overdue && (
+                        <p className="text-[11px] text-rose-600 mt-0.5">Overdue</p>
+                      )}
+                    </div>
+                  );
+                },
+              },
+              {
+                key: 'updatedAt',
+                header: 'Updated',
+                width: '150px',
+                sortable: true,
+                cell: d => (
+                  <div className="text-xs">
+                    <p className="text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      {formatDate(d.updatedAt, true)}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{formatRelative(d.updatedAt)}</p>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+
+        {sorted.length > 0 && (
+          <div className="px-4 py-3 border-t border-border">
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={sorted.length}
+              start={pagination.start}
+              end={pagination.end}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
             />
-          </div>
-        ) : (
-          <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {filtered.map(doc => (
-              <DocumentCard key={doc.id} doc={doc} />
-            ))}
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+/**
+ * Per-office receiving progress. Each recipient office is tracked
+ * independently, so this is the meaningful "where is it now" signal.
+ */
+function RecipientProgress({ doc }: { doc: DocumentListItem }) {
+  const total = doc.recipients.length;
+  if (total === 0) {
+    return <span className="text-xs text-slate-400">No recipients</span>;
+  }
+  const received = doc.recipients.filter(r => r.status === 'received').length;
+  const complete = received === total;
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center justify-between text-[11px] mb-1">
+        <span
+          className={cn(
+            'font-semibold tabular-nums',
+            complete ? 'text-emerald-700' : 'text-slate-700',
+          )}
+        >
+          {received}/{total}
+        </span>
+        <span className="text-slate-400">{complete ? 'All received' : 'offices'}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <div
+          className={cn('h-full rounded-full transition-all', complete ? 'bg-emerald-500' : 'bg-brand-500')}
+          style={{ width: `${Math.round((received / total) * 100)}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -229,149 +431,18 @@ function StatCard({
       <div className="min-w-0">
         <p className="text-2xl font-semibold text-foreground tabular-nums leading-none">{value}</p>
         <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>
-        {hint && <p className="text-[10px] font-medium text-rose-600 mt-0.5">{hint}</p>}
-      </div>
-    </div>
-  );
-}
-
-function DocumentCard({ doc }: { doc: DocumentListItem }) {
-  const officeById = useOfficeLookup();
-  const userById = useUserLookup();
-  const office = officeById(doc.currentOfficeId);
-  const holder = doc.currentHolderId ? userById(doc.currentHolderId) : null;
-  const progress = lifecycleProgress(doc.status);
-  const isTerminal = TERMINAL_COMPLETE_STATUSES.includes(doc.status);
-  const nextStatus = (ALLOWED_TRANSITIONS[doc.status] ?? [])[0];
-  const isOverdue = doc.dueDate &&
-    !isTerminal &&
-    new Date(doc.dueDate).getTime() < new Date().getTime();
-
-  return (
-    <Link
-      to={`/documents/${doc.id}`}
-      className="group relative flex flex-col rounded-xl border border-border bg-card p-4 sm:p-5 transition-all hover:border-brand-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <span className="font-mono text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded px-1.5 py-0.5">
-            {doc.trackingNumber}
-          </span>
-          <StatusBadge status={doc.status} />
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <PriorityBadge priority={doc.priority} />
-          <span className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-            <ArrowUpRight className="w-4 h-4" />
-          </span>
-        </div>
-      </div>
-
-      <h3 className="mt-3 text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-brand-700 transition-colors">
-        {doc.title}
-      </h3>
-
-      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Clock className="w-3 h-3" />
-        <span>Updated {formatRelative(doc.updatedAt)}</span>
-      </div>
-
-      <Separator className="my-4" />
-
-      <div className="space-y-2.5 text-xs">
-        <DetailRow
-          icon={<Building2 className="w-3.5 h-3.5" />}
-          label="Office"
-          value={office?.name}
-          sub={office?.code}
-        />
-        <DetailRow
-          icon={<MapPin className="w-3.5 h-3.5" />}
-          label="Holder"
-          value={holder?.fullName}
-          sub={holder?.position ?? undefined}
-          avatar={holder ? { name: holder.fullName, color: holder.avatarColor } : undefined}
-        />
-        <DetailRow
-          icon={<CircleDot className="w-3.5 h-3.5" />}
-          label="Due"
-          value={doc.dueDate ? formatDate(doc.dueDate) : 'No deadline'}
-          tone={isOverdue ? 'danger' : 'default'}
-          badge={isOverdue ? 'Overdue' : undefined}
-        />
-      </div>
-
-      <div className="mt-auto pt-4">
-        <div className="flex items-center justify-between text-[11px] mb-1.5">
-          <span className="font-semibold uppercase tracking-wider text-muted-foreground">
-            Progress
-          </span>
-          <span className="tabular-nums text-foreground font-medium">{progress}%</span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
+        {hint && (
+          <p
             className={cn(
-              'h-full rounded-full transition-all',
-              progress === 100 ? 'bg-emerald-500' : 'bg-brand-500'
+              'text-[10px] font-medium mt-0.5',
+              tone === 'danger' ? 'text-rose-600' : 'text-amber-600',
             )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ArrowRight className="w-3 h-3 shrink-0" />
-          <span className="truncate">{office?.code ?? '—'}</span>
-          <span className="text-slate-300">to</span>
-          <span className="font-medium text-foreground truncate">
-            {isTerminal ? 'Complete' : nextStatus ? DOCUMENT_STATUS_LABELS[nextStatus] : '—'}
-          </span>
-        </div>
-        {!nextStatus && !isTerminal && (
-          <p className="mt-2 text-[11px] italic text-muted-foreground">
-            {DOCUMENT_STATUS_LABELS[doc.status]} · No further steps recorded for this document.
+          >
+            {hint}
           </p>
         )}
       </div>
-    </Link>
-  );
-}
-
-function DetailRow({
-  icon,
-  label,
-  value,
-  sub,
-  avatar,
-  tone = 'default',
-  badge,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value?: string;
-  sub?: string;
-  avatar?: { name: string; color: string };
-  tone?: 'default' | 'danger';
-  badge?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="text-muted-foreground shrink-0">{icon}</span>
-      <span className="w-11 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      {avatar && <Avatar name={avatar.name} color={avatar.color} size="xs" />}
-      <span className={cn(
-        'truncate font-medium',
-        tone === 'danger' ? 'text-rose-600' : 'text-slate-900'
-      )}>
-        {value ?? '—'}
-      </span>
-      {sub && <span className="text-muted-foreground truncate">· {sub}</span>}
-      {badge && (
-        <span className="ml-auto shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          <AlertCircle className="w-3 h-3" />
-          {badge}
-        </span>
-      )}
     </div>
   );
 }
+

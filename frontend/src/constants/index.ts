@@ -1,11 +1,16 @@
-import type { DocumentStatus, DocumentType, DocumentClassification, UserRole, Permission } from '@/types';
+﻿import type { DocumentStatus, DocumentType, DocumentClassification, UserRole, Permission } from '@/types';
 
+// Workflow: REGISTERED -> RECEIVED -> ARCHIVED.
+// Nothing is ever a user-initiated status change:
+//  - 'received' comes from the per-office receiving action.
+//  - 'archived' comes from the backend auto-archive job.
+// Legacy statuses remain in the union only so historical rows still render.
 export const ALLOWED_TRANSITIONS: Record<DocumentStatus, DocumentStatus[]> = {
   registered: ['received'],
-  received: ['approved', 'rejected'],
-  approved: ['released'],
-  rejected: ['archived'],
-  released: ['archived'],
+  received: [],
+  approved: [],
+  rejected: [],
+  released: [],
   archived: [],
 };
 
@@ -31,7 +36,7 @@ export const ROLE_SHORT_LABELS: Record<UserRole, string> = {
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   system_admin: 'Full system access. Manages users, offices, roles, and system configuration.',
   office_admin:
-    'Approves, rejects, releases, and archives documents within their authorized office.',
+    'Manages documents within their authorized office and monitors document status.',
   document_encoder:
     'Registers documents, uploads attachments, and maintains document metadata.',
   document_officer:
@@ -43,8 +48,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'dashboard.view',
     'documents.view', 'documents.create', 'documents.edit', 'documents.delete',
     'documents.register', 'documents.receive',
-    'documents.approve', 'documents.reject',
-    'documents.release', 'documents.archive', 'documents.track',
+    'documents.track',
     'users.view', 'users.create', 'users.edit', 'users.delete',
     'offices.view', 'offices.create', 'offices.edit', 'offices.delete',
     'document_types.view', 'document_types.create', 'document_types.edit', 'document_types.delete',
@@ -56,8 +60,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   office_admin: [
     'dashboard.view',
     'documents.view', 'documents.edit', 'documents.delete',
-    'documents.approve', 'documents.reject',
-    'documents.release', 'documents.archive', 'documents.track',
+    'documents.track',
     'users.view', 'users.create', 'users.edit',
     'offices.view', 'offices.edit',
     'document_types.view', 'document_types.create', 'document_types.edit',
@@ -137,16 +140,12 @@ export const PRIORITY_COLORS = {
 export const DOCUMENT_WORKFLOW: DocumentStatus[] = [
   'registered',
   'received',
-  'approved',
-  'released',
+  'archived',
 ];
 
 export const ALL_DOCUMENT_STATUSES: DocumentStatus[] = [
   'registered',
   'received',
-  'approved',
-  'rejected',
-  'released',
   'archived',
 ];
 
@@ -229,7 +228,7 @@ export const OFFICE_DIRECTORY: OfficeDirectoryEntry[] = [
   { name: 'Community Environment and Natural Resources Office (CENRO)', code: 'CENRO', group: 'National Government Offices in Valencia City' },
   { name: 'Department of Agrarian Reform (DAR)', code: 'DAR', group: 'National Government Offices in Valencia City' },
   { name: 'Department of the Interior and Local Government (DILG)', code: 'DILG', group: 'National Government Offices in Valencia City' },
-  { name: 'Department of Education – Valencia City', code: 'DEPED-VAL', group: 'National Government Offices in Valencia City' },
+  { name: 'Department of Education â€“ Valencia City', code: 'DEPED-VAL', group: 'National Government Offices in Valencia City' },
   { name: 'Land Transportation Office (LTO)', code: 'LTO', group: 'National Government Offices in Valencia City' },
   { name: 'Municipal Trial Court in Cities (MTCC)', code: 'MTCC', group: 'National Government Offices in Valencia City' },
   { name: 'Pag-IBIG Fund', code: 'PAG-IBIG', group: 'National Government Offices in Valencia City' },

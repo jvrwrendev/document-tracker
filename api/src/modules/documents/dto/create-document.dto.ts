@@ -69,8 +69,10 @@ export class CreateDocumentDto {
   @IsUUID()
   currentOfficeId!: string;
 
-  // Informational Receiving / Destination Offices.
-  // When destinationsAllOffices is true, recipientOfficeIds MUST be empty.
+// Informational Receiving / Destination Offices.
+// 'All offices' is opt-in: when destinationsAllOffices is true (or omitted),
+// recipientOfficeIds MUST be empty and the default is a scoped distribution.
+// At least one destination is required.
   @IsOptional()
   @IsBoolean()
   destinationsAllOffices?: boolean;

@@ -31,27 +31,16 @@ import { formatRelative, cn } from '@/lib/utils';
 import type { DocumentStatus } from '@/types';
 import type { NotificationItem } from '@/features/notifications/types/notification';
 
-const PENDING_STATUSES = new Set<DocumentStatus>([
-  'registered',
-  'received',
-  'approved',
-  'rejected',
-  'released',
-]);
+const PENDING_STATUSES = new Set<DocumentStatus>(['registered', 'received']);
 
 function getActionForStatus(status: DocumentStatus): string | null {
   switch (status) {
     case 'registered': return 'Receive & log';
-    case 'received': return 'Approve / Reject';
-    case 'approved': return 'Release';
-    case 'rejected': return 'Archive';
-    case 'released': return 'Archive';
     default: return null;
   }
 }
 
-function getActionToneForStatus(status: DocumentStatus): 'slate' | 'amber' {
-  if (status === 'rejected') return 'amber';
+function getActionToneForStatus(_status: DocumentStatus): 'slate' | 'amber' {
   return 'slate';
 }
 
@@ -76,12 +65,12 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     const total = documents.length;
     const inProgress = documents.filter(d =>
-      ['registered', 'received', 'approved'].includes(d.status)
+      ['registered', 'received'].includes(d.status)
     ).length;
-    const completed = documents.filter(d => d.status === 'released' || d.status === 'archived').length;
+    const completed = documents.filter(d => d.status === 'archived').length;
     const overdue = documents.filter(d => {
       if (!d.dueDate) return false;
-      if (d.status === 'released' || d.status === 'archived' || d.status === 'rejected') return false;
+      if (d.status === 'archived') return false;
       return new Date(d.dueDate).getTime() < new Date().getTime();
     }).length;
     const myDocuments = documents.filter(d =>
@@ -124,31 +113,15 @@ export function DashboardPage() {
   }, [documents]);
 
   const activeStatuses = useMemo(() => {
-    const active: DocumentStatus[] = [
-      'registered',
-      'received',
-      'approved',
-      'rejected',
-      'released',
-      'archived',
-    ];
+    const active: DocumentStatus[] = ['registered', 'received', 'archived'];
     return active.map(s => ({ status: s, count: statusDistribution[s] }));
   }, [statusDistribution]);
 
-  const completedCount = useMemo(
-    () => statusDistribution.released + statusDistribution.archived,
-    [statusDistribution]
-  );
+  const completedCount = statusDistribution.archived;
 
   const completionRate = stats.total === 0 ? 0 : Math.round((completedCount / stats.total) * 100);
 
-  const workflowSteps = [
-    'registered',
-    'received',
-    'approved',
-    'released',
-    'archived',
-  ] as const;
+  const workflowSteps = ['registered', 'received', 'archived'] as const;
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -405,7 +378,7 @@ export function DashboardPage() {
               const isOverdue =
                 !!doc.dueDate &&
                 new Date(doc.dueDate).getTime() < Date.now() &&
-                !['released', 'archived', 'rejected'].includes(doc.status);
+                doc.status !== 'archived';
               return (
                 <Link
                   key={doc.id}

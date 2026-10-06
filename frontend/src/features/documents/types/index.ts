@@ -18,7 +18,6 @@ export type {
   DocumentListResponse,
   DocumentCreateInput,
   DocumentUpdateInput,
-  DocumentTransitionInput,
   DocumentNumberSuggestion,
   DocumentNumberAvailability,
   DocumentNumberAvailabilityExisting,

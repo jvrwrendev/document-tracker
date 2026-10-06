@@ -35,9 +35,7 @@ export interface RoleUser {
 export const PERMISSION_CATALOG: string[] = [
   'dashboard.view',
   'documents.view', 'documents.create', 'documents.edit', 'documents.delete',
-  'documents.register', 'documents.receive', 'documents.route', 'documents.review',
-  'documents.recommend', 'documents.approve', 'documents.reject', 'documents.return',
-  'documents.release', 'documents.archive', 'documents.track',
+  'documents.register', 'documents.receive', 'documents.track',
   'users.view', 'users.create', 'users.edit', 'users.delete',
   'offices.view', 'offices.create', 'offices.edit', 'offices.delete',
   'document_types.view', 'document_types.create', 'document_types.edit', 'document_types.delete',
@@ -52,8 +50,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   OFFICE_ADMIN: [
     'dashboard.view',
     'documents.view', 'documents.edit', 'documents.delete',
-    'documents.approve', 'documents.reject',
-    'documents.release', 'documents.archive', 'documents.track',
+    'documents.track',
     'users.view', 'users.create', 'users.edit',
     'offices.view', 'offices.edit',
     'document_types.view', 'document_types.create', 'document_types.edit',
@@ -81,7 +78,7 @@ const ROLE_DEFINITIONS: Record<Role, { name: string; description: string }> = {
   OFFICE_ADMIN: {
     name: 'Office Administrator',
     description:
-      'Approves, rejects, releases, and archives documents within their authorized office.',
+      'Manages documents within their authorized office and monitors recipient status.',
   },
   DOCUMENT_ENCODER: {
     name: 'Document Encoder',

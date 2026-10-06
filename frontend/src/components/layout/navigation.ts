@@ -1,4 +1,4 @@
-import type { UserRole } from '@/types';
+﻿import type { UserRole } from '@/types';
 
 export interface NavItem {
   id: string;
@@ -15,9 +15,6 @@ import {
   LayoutDashboard,
   FileText,
   Inbox,
-  Send,
-  ClipboardCheck,
-  PackageOpen,
   Activity,
   Archive,
   Users as UsersIcon,
@@ -59,22 +56,6 @@ export const navigation: NavItem[] = [
     to: '/outbox',
     icon: 'Mail',
     section: 'workspace',
-  },
-  {
-    id: 'approval',
-    label: 'Approval',
-    to: '/review',
-    icon: 'ClipboardCheck',
-    section: 'workspace',
-    roles: ['system_admin', 'office_admin'],
-  },
-  {
-    id: 'release',
-    label: 'Release',
-    to: '/release',
-    icon: 'PackageOpen',
-    section: 'workspace',
-    roles: ['system_admin', 'office_admin'],
   },
   {
     id: 'tracking',
@@ -151,9 +132,6 @@ export const iconMap = {
   LayoutDashboard,
   FileText,
   Inbox,
-  Send,
-  ClipboardCheck,
-  PackageOpen,
   Activity,
   Archive,
   Users: UsersIcon,

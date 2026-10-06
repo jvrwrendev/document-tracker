@@ -79,13 +79,12 @@ export function OutboxPage() {
 
   const counts = useMemo(() => {
     const inProgress = myOutbox.filter(d =>
-      ['registered', 'received', 'approved'].includes(d.status)
+      ['registered', 'received'].includes(d.status)
     ).length;
-    const completed = myOutbox.filter(d =>
-      ['released', 'archived'].includes(d.status)
-    ).length;
-    const actionRequired = myOutbox.filter(d =>
-      d.status === 'rejected'
+    const completed = myOutbox.filter(d => d.status === 'archived').length;
+    // Still awaiting a recipient office to receive it.
+    const actionRequired = myOutbox.filter(
+      d => d.status === 'registered' && d.recipients.some(r => r.status === 'pending')
     ).length;
     return {
       all: myOutbox.length,
@@ -98,11 +97,11 @@ export function OutboxPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return myOutbox.filter(d => {
-      if (tab === 'active' && !['registered', 'received', 'approved'].includes(d.status))
+      if (tab === 'active' && !['registered', 'received'].includes(d.status))
         return false;
-      if (tab === 'completed' && !['released', 'archived'].includes(d.status))
+      if (tab === 'completed' && d.status !== 'archived')
         return false;
-      if (tab === 'action' && d.status !== 'rejected')
+      if (tab === 'action' && !(d.status === 'registered' && d.recipients.some(r => r.status === 'pending')))
         return false;
       if (statusFilter !== 'all' && d.status !== statusFilter) return false;
       if (typeFilter !== 'all' && d.type !== typeFilter) return false;
@@ -189,7 +188,7 @@ export function OutboxPage() {
             onChange={setTab}
             items={[
               { id: 'active', label: 'In Progress', count: counts.active },
-              { id: 'action', label: 'Action Required', count: counts.action },
+              { id: 'action', label: 'Awaiting Receipt', count: counts.action },
               { id: 'completed', label: 'Completed', count: counts.completed },
               { id: 'all', label: 'All', count: counts.all },
             ]}

@@ -12,7 +12,6 @@ import type {
   DocumentReceiveInput,
   DocumentReceiveResult,
   DocumentTimelineEntry,
-  DocumentTransitionInput,
   DocumentUpdateInput,
   DocumentAttachment,
   DocumentRecipient,
@@ -152,13 +151,6 @@ export const documentsService = {
   update(id: string, payload: DocumentUpdateInput): Promise<DocumentListItem> {
     return request<DocumentListItem>(`/documents/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-  },
-
-  transition(id: string, payload: DocumentTransitionInput): Promise<DocumentListItem> {
-    return request<DocumentListItem>(`/documents/${id}/transition`, {
-      method: 'POST',
       body: JSON.stringify(payload),
     });
   },

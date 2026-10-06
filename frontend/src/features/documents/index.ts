@@ -1,8 +1,8 @@
-export {
+﻿export {
   useDocuments,
   useDocumentDetail,
+  useDocumentReceive,
   useRegisterDocument,
-  useDocumentTransition,
   useDocumentHistory,
   useDocumentTimeline,
 } from '@/features/documents/hooks';
@@ -20,7 +20,5 @@ export { DocumentDetailPage } from '@/features/documents/pages/DocumentDetailPag
 export { DocumentRegistrationPage } from '@/features/documents/pages/DocumentRegistrationPage';
 export { InboxPage } from '@/features/documents/pages/InboxPage';
 export { OutboxPage } from '@/features/documents/pages/OutboxPage';
-export { ApprovalPage } from '@/features/documents/pages/ApprovalPage';
-export { ReleasePage } from '@/features/documents/pages/ReleasePage';
 export { TrackingPage } from '@/features/documents/pages/TrackingPage';
 export { ArchivePage } from '@/features/documents/pages/ArchivePage';

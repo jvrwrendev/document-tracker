@@ -261,12 +261,7 @@ export interface DocumentReceiveResult {
   documentStatus: DocumentStatus;
 }
 
-export interface DocumentTransitionInput {
-  toStatus: DocumentStatus;
-  currentOfficeId?: string;
-  currentHolderId?: string;
-  remarks?: string;
-}
+
 
 export interface DocumentNumberSuggestion {
   suggestion: string;

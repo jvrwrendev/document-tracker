@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -8,9 +8,6 @@ import {
   Download,
   Eye,
   CheckCircle2,
-  XCircle,
-  PackageOpen,
-  Archive as ArchiveIcon,
   History as HistoryIcon,
   ChevronDown,
   ChevronUp,
@@ -38,31 +35,26 @@ import {
 import { formatDate, formatRelative, cn } from '@/lib/utils';
 import { attachmentsService } from '@/features/documents/services/documents.service';
 import { useDocumentHistory } from '@/features/documents/hooks/useDocumentHistory';
-import { useDocumentTransition } from '@/features/documents/hooks/useDocumentTransition';
 import { useDocumentReceive } from '@/features/documents/hooks/useDocumentReceive';
 import { useRecipientNote } from '@/features/documents/hooks/useRecipientNote';
 import { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail';
 import { DocumentTracker } from '@/features/documents/components/DocumentTracker';
 import { RecipientTracking } from '@/features/documents/components/RecipientTracking';
 import type { DocumentStatus, Permission } from '@/types';
-import type { DocumentDetail, DocumentPerson } from '@/features/documents/types/document';
+import type {
+  DocumentAttachment,
+  DocumentDetail,
+  DocumentPerson,
+} from '@/features/documents/types/document';
 
-type ActionType = 'receive' | 'approve' | 'reject' | 'release' | 'archive';
+type ActionType = 'receive';
 
 const ACTION_STATUS_MAP: Record<ActionType, DocumentStatus> = {
   receive: 'received',
-  approve: 'approved',
-  reject: 'rejected',
-  release: 'released',
-  archive: 'archived',
 };
 
 const ACTION_PERMISSION: Record<ActionType, Permission> = {
   receive: 'documents.receive',
-  approve: 'documents.approve',
-  reject: 'documents.reject',
-  release: 'documents.release',
-  archive: 'documents.archive',
 };
 
 const ACTION_META: Record<
@@ -75,52 +67,9 @@ const ACTION_META: Record<
     icon: <Inbox className="w-3.5 h-3.5" />,
     tone: 'primary',
   },
-  approve: {
-    label: 'Approve',
-    description: 'Approve this document so it can be released.',
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-    tone: 'primary',
-  },
-  reject: {
-    label: 'Reject',
-    description: 'Reject the document — it will be closed out.',
-    icon: <XCircle className="w-3.5 h-3.5" />,
-    tone: 'danger',
-  },
-  release: {
-    label: 'Release',
-    description: 'Mark as released to the recipient.',
-    icon: <PackageOpen className="w-3.5 h-3.5" />,
-    tone: 'primary',
-  },
-  archive: {
-    label: 'Archive',
-    description: 'Move to long-term archive.',
-    icon: <ArchiveIcon className="w-3.5 h-3.5" />,
-    tone: 'outline',
-  },
 };
 
-const PRIMARY_BY_STATUS: Partial<Record<DocumentStatus, ActionType>> = {
-  registered: 'receive',
-  received: 'approve',
-  approved: 'release',
-  rejected: 'archive',
-  released: 'archive',
-};
-
-const DECISION_BY_STATUS: Partial<Record<DocumentStatus, ActionType[]>> = {
-  registered: ['receive'],
-  received: ['approve', 'reject'],
-};
-
-const TERMINAL_BY_STATUS: Partial<Record<DocumentStatus, ActionType[]>> = {
-  approved: ['release'],
-  rejected: ['archive'],
-  released: ['archive'],
-};
-
-const TERMINAL_STATUSES: DocumentStatus[] = ['rejected', 'released', 'archived'];
+const TERMINAL_STATUSES: DocumentStatus[] = ['archived'];
 
 function colorForId(id: string): string {
   let hash = 0;
@@ -139,7 +88,6 @@ export function DocumentDetailPage() {
 
   const { document: doc, loading: documentLoading, refresh, downloadAttachment } = useDocumentDetail(id);
   const { history } = useDocumentHistory(id);
-  const transition = useDocumentTransition();
   const receiveAction = useDocumentReceive();
   const recipientNote = useRecipientNote();
   const officeById = useOfficeLookup();
@@ -150,7 +98,7 @@ export function DocumentDetailPage() {
   const [actionsOpen, setActionsOpen] = useState(true);
 
   if (documentLoading) {
-    return <div className="py-20 text-center text-sm text-slate-500">Loading document…</div>;
+    return <div className="py-20 text-center text-sm text-slate-500">Loading documentâ€¦</div>;
   }
 
   if (!doc) {
@@ -183,68 +131,26 @@ export function DocumentDetailPage() {
     !isTerminal &&
     doc.encodedById !== user.id;
 
-  const decisionActions = (DECISION_BY_STATUS[doc.status] ?? []).filter(
-    a => allowed(a) && (a !== 'receive' || receiveAvailable)
-  );
-  const terminalActions = (TERMINAL_BY_STATUS[doc.status] ?? []).filter(allowed);
-  const primaryStatus = PRIMARY_BY_STATUS[doc.status];
-  const primaryAction: ActionType | null =
-    primaryStatus && allowed(primaryStatus) && (primaryStatus !== 'receive' || receiveAvailable)
-      ? primaryStatus
-      : null;
-
-  const openAction = (action: ActionType) => {
-    if (action === 'reject' || action === 'archive') {
-      confirm({
-        title: action === 'reject' ? 'Reject Document' : 'Archive Document',
-        description:
-          action === 'reject'
-            ? 'Are you sure you want to reject this document? This action cannot be undone.'
-            : 'This document will be archived and moved out of active workflow.',
-        confirmText: action === 'reject' ? 'Reject' : 'Archive',
-        variant: 'danger',
-      }).then(ok => {
-        if (ok) setActionModal(action);
-      });
-    } else {
-      setActionModal(action);
-    }
-  };
-
-  const submitAction = async () => {
-    if (!actionModal) return;
-    if (actionModal === 'receive') {
-      const result = await receiveAction.receive(doc.id, {
-        remarks: remarks.trim() || undefined,
-      });
-      if (!result) {
-        toast.error('Action failed', receiveAction.error ?? 'Please retry.');
-        return;
-      }
-      await refresh();
-      toast.success('Document received', `Receipt recorded for your office.`);
-      setActionModal(null);
-      setRemarks('');
-      return;
-    }
-    const newStatus = ACTION_STATUS_MAP[actionModal];
-    const updated = await transition.transition(doc.id, {
-      toStatus: newStatus,
-      remarks: remarks || `${ACTION_META[actionModal].label} action recorded.`,
-    });
-    if (!updated) {
-      toast.error('Action failed', transition.error ?? 'Please retry.');
-      return;
-    }
-    await refresh();
-    toast.success('Action recorded', `Document has been ${actionMarker(actionModal)}.`);
-    setActionModal(null);
-    setRemarks('');
-  };
-
   const canDownload = doc.attachments.length > 0;
 
   const canManageNotes = user.role === 'system_admin' || user.role === 'office_admin';
+
+  const confirmReceive = async (): Promise<void> => {
+    const result = await receiveAction.receive(doc.id, {
+      remarks: remarks.trim() || undefined,
+    });
+    if (!result) {
+      toast.error('Receive failed', receiveAction.error ?? 'Please retry.');
+      return;
+    }
+    setActionModal(null);
+    setRemarks('');
+    await refresh();
+    toast.success(
+      'Document received',
+      `${doc.trackingNumber} was received for your office.`,
+    );
+  };
 
   const handleSetNote = async (officeId: string, note: string): Promise<boolean> => {
     const updated = await recipientNote.setNote(doc.id, officeId, note);
@@ -282,8 +188,8 @@ export function DocumentDetailPage() {
         holderPosition={holderPosition}
         office={office ? `${office.code} ${office.name}` : null}
         isOverdue={!!isOverdue}
-        primaryAction={primaryAction}
-        onPrimaryAction={() => primaryAction && openAction(primaryAction)}
+        primaryAction={receiveAvailable ? 'receive' : null}
+        onPrimaryAction={() => receiveAvailable && setActionModal('receive')}
         canDownload={canDownload}
       />
 
@@ -304,23 +210,18 @@ export function DocumentDetailPage() {
 
         <aside className="lg:col-span-4 space-y-6">
           <DocumentActions
-            decisionActions={decisionActions}
-            terminalActions={terminalActions}
+            receiveAction={receiveAvailable}
             open={actionsOpen}
             onToggle={() => setActionsOpen(o => !o)}
-            onAction={openAction}
+            onReceive={() => setActionModal('receive')}
           />
           <DocumentInfoSidebar
             document={doc}
             office={office}
             isOverdue={!!isOverdue}
-            onViewAttachment={(att) => {
-              if (att.mimeType.toLowerCase() === 'application/pdf') {
-              void downloadAttachment(att.id);
-              } else {
-                void downloadAttachment(att.id);
-              }
-            }}
+            onViewAttachment={(att: DocumentAttachment) =>
+              void downloadAttachment(att.id)
+            }
             onDownloadAttachment={(attId) => void downloadAttachment(attId)}
           />
         </aside>
@@ -337,16 +238,12 @@ export function DocumentDetailPage() {
             <Button variant="outline" onClick={() => setActionModal(null)}>
               Cancel
             </Button>
-            <Button
-              variant={actionModal === 'reject' ? 'danger' : 'primary'}
-              onClick={submitAction}
-              disabled={transition.saving}
+<Button
+              variant="primary"
+              onClick={confirmReceive}
+              disabled={receiveAction.saving}
             >
-              {transition.saving
-                ? 'Saving…'
-                : actionModal
-                  ? `Confirm ${ACTION_META[actionModal].label.toLowerCase()}`
-                  : ''}
+              {receiveAction.saving ? 'Saving...' : 'Confirm Receive'}
             </Button>
           </>
         }
@@ -355,30 +252,19 @@ export function DocumentDetailPage() {
           <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
             <p className="text-xs text-slate-500">Document</p>
             <p className="text-sm font-semibold text-slate-900">
-              {doc.trackingNumber} · {doc.title}
+              {doc.trackingNumber} Â· {doc.title}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Current office: {office ? `${office.code} ${office.name}` : '—'} · Status:{' '}
+              Current office: {office ? `${office.code} ${office.name}` : 'â€”'} Â· Status:{' '}
               {DOCUMENT_STATUS_LABELS[doc.status]}
             </p>
           </div>
-          <Textarea
-            label={
-              actionModal === 'receive'
-                ? 'Remarks (optional)'
-                : actionModal === 'reject'
-                  ? 'Rejection reason'
-                  : 'Remarks'
-            }
-            required={actionModal !== 'receive'}
+<Textarea
+            label="Remarks (optional)"
             rows={4}
             value={remarks}
             onChange={e => setRemarks(e.target.value)}
-            placeholder={
-              actionModal === 'receive'
-                ? 'Optional note about this receipt…'
-                : 'Provide context for this action…'
-            }
+            placeholder="Optional note about this receipt"
           />
         </div>
       </Modal>
@@ -386,20 +272,6 @@ export function DocumentDetailPage() {
   );
 }
 
-function actionMarker(action: ActionType): string {
-  switch (action) {
-    case 'reject':
-      return 'rejected';
-    case 'receive':
-      return 'received';
-    case 'approve':
-      return 'approved';
-    case 'release':
-      return 'released';
-    case 'archive':
-      return 'archived';
-  }
-}
 
 interface DocumentHeroProps {
   document: DocumentDetail;
@@ -432,123 +304,160 @@ function DocumentHero({
         <span>Created {formatDate(d.createdAt)}</span>
         {d.source === 'external' && d.senderName && <span>From {d.senderName}</span>}
       </div>
+<div className="rounded-xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-shadow duration-200 overflow-hidden">
+  <div className="p-5 sm:p-6 lg:p-7">
+    {/* MAIN HORIZONTAL GRID */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      {/* 1. Title & Description (Cols 1-3) */}
+      <div className="lg:col-span-3 space-y-4">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+            {d.title}
+          </h1>
+        </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 sm:px-6 py-5 flex flex-col gap-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight leading-snug">
-              {d.title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
-              <StatusBadge status={d.status} />
-              <PriorityBadge priority={d.priority} />
-              <ClassificationBadge classification={d.classification} />
-              <Tag variant="slate">{DOCUMENT_TYPE_LABELS[d.type]}</Tag>
-              {isOverdue && (
-                <Tag variant="rose" icon={<AlertCircle className="w-3 h-3" />}>
-                  Overdue
-                </Tag>
-              )}
+        {d.description && (
+          <div className="space-y-1">
+            <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Description
+            </span>
+            <p className="text-xs font-semibold text-slate-500 uppercase leading-snug">
+              {d.description}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Office & Date Received Column (Cols 4-6) */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Office */}
+        <div className="space-y-1 min-w-0">
+          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Office
+          </span>
+          <p className="text-xs font-semibold text-slate-800 leading-tight truncate" title={office ?? 'OCM Office of the City Mayor'}>
+            {office ?? 'OCM Office of the City Mayor'}
+          </p>
+        </div>
+
+        {/* Date Received */}
+        <div className="space-y-1 min-w-0">
+          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Date Receive
+          </span>
+          <p className="text-xs font-semibold text-slate-800 tracking-tight">
+            {d.dateReceived ? formatDate(d.dateReceived) : 'Oct 06, 2026'}
+          </p>
+        </div>
+      </div>
+
+      {/* 3. Holder & Due Date Column (Cols 7-9) */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Holder */}
+        <div className="space-y-1 min-w-0">
+          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Holder
+          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Avatar name={holderName ?? 'Juan Santos Dela Cruz'} color="bg-slate-900" size="xs" className="shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <p className="text-xs font-semibold text-slate-800 truncate">
+                {holderName ?? 'Juan Santos Dela Cruz'}
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5" title={holderPosition ?? 'Office Head'}>
+                {holderPosition ?? 'Office Head'}
+              </p>
             </div>
           </div>
+        </div>
 
-          {d.description && (
-            <p className="text-sm text-slate-600 leading-relaxed">{d.description}</p>
-          )}
+        {/* Due Date */}
+        <div className="space-y-1 min-w-0">
+          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            Due Date
+          </span>
+          <p className={cn('text-xs font-semibold tracking-tight', isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800')}>
+            {d.dueDate ? formatDate(d.dueDate) : 'October 21, 2026'}
+          </p>
+        </div>
+      </div>
 
-          {d.tags.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <TagIcon className="w-3.5 h-3.5 text-slate-400" />
+      {/* 4. Right Area: Tags/Badges at Top & Download Button Aligned with Due Date at Bottom (Cols 10-12) */}
+      <div className="lg:col-span-3 flex flex-col justify-between items-start lg:items-end self-stretch gap-4">
+        
+        {/* Top: TAGS & Status Badges */}
+        <div className="flex items-center justify-start lg:justify-end gap-1.5 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-0.5">
+            TAGS
+          </span>
+          
+          {/* Custom Tags */}
+          {d.tags && d.tags.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
               {d.tags.map(t => (
                 <span
                   key={t}
-                  className="text-[11px] font-mono text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded"
+                  className="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/60"
                 >
                   #{t}
                 </span>
               ))}
             </div>
           )}
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5 px-5 sm:px-6 py-4 border-t border-slate-100">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Office</p>
-            <p className="text-sm font-semibold text-slate-900 truncate">{office ?? '—'}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Holder</p>
-            {holderName ? (
-              <div className="flex items-center gap-2 min-w-0">
-                <Avatar name={holderName} color="bg-brand-600" size="xs" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{holderName}</p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {holderPosition ?? (d.receivedBy ? 'Received' : '')}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">Unassigned</p>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-              Date Received
-            </p>
-            <p className="text-sm font-semibold text-slate-900">
-              {d.dateReceived ? formatDate(d.dateReceived) : '—'}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due</p>
-            <p className={cn('text-sm font-semibold', isOverdue ? 'text-rose-700' : 'text-slate-900')}>
-              {d.dueDate ? formatDate(d.dueDate) : 'No deadline'}
-            </p>
+          {/* Badges */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={d.status} />
+            <PriorityBadge priority={d.priority} />
+            <ClassificationBadge classification={d.classification} />
+            {/* <Tag variant="slate">{DOCUMENT_TYPE_LABELS[d.type]}</Tag>
+            {isOverdue && (
+              <Tag variant="rose" icon={<AlertCircle className="w-3.5 h-3.5" />}>
+                Overdue
+              </Tag>
+            )} */}
           </div>
         </div>
 
-        {showAttachmentBar && (
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 px-5 sm:px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="hidden sm:block text-xs text-slate-500">
-              {primaryAction && !isTerminal
-                ? `Next step: ${ACTION_META[primaryAction].label} this document.`
-                : isTerminal
-                  ? 'This document has reached the end of its lifecycle.'
-                  : 'No further actions available.'}
-            </p>
-            <div className="flex items-center gap-2 sm:justify-end">
-              {canDownload && (
-                <Button variant="outline" size="md" leftIcon={<Download className="w-4 h-4" />}>
-                  Download
-                </Button>
-              )}
-
-            </div>
+        {/* Bottom: Download Button level with Due Date */}
+        {canDownload && (
+          <div className="pt-1">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs font-medium text-xs px-3 py-1.5" 
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+            >
+              Download
+            </Button>
           </div>
         )}
+
       </div>
+
+    </div>
+  </div>
+</div>
     </header>
   );
 }
 
 interface DocumentActionsProps {
-  decisionActions: ActionType[];
-  terminalActions: ActionType[];
+  receiveAction: boolean;
   open: boolean;
   onToggle: () => void;
-  onAction: (action: ActionType) => void;
+  onReceive: () => void;
 }
 
 function DocumentActions({
-  decisionActions,
-  terminalActions,
+  receiveAction,
   open,
   onToggle,
-  onAction,
+  onReceive,
 }: DocumentActionsProps) {
-  const hasAny = decisionActions.length > 0 || terminalActions.length > 0;
-  if (!hasAny) {
+  const meta = ACTION_META.receive;
+  if (!receiveAction) {
     return (
       <Card>
         <CardHeader title="Actions" description="No actions available for your role" />
@@ -573,61 +482,23 @@ function DocumentActions({
       </button>
       {open && (
         <div className="px-5 pb-5 space-y-5 border-t border-slate-100 pt-4">
-          {decisionActions.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 mb-2.5">
-                Decision
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {decisionActions.map(action => {
-                  const meta = ACTION_META[action];
-                  const variant =
-                    meta.tone === 'primary'
-                      ? 'primary'
-                      : meta.tone === 'danger'
-                        ? 'danger'
-                        : 'outline';
-                  return (
-                    <Button
-                      key={action}
-                      variant={variant as 'primary' | 'outline' | 'danger'}
-                      size="sm"
-                      className={meta.tone === 'primary' ? 'shadow-sm' : undefined}
-                      leftIcon={meta.icon}
-                      onClick={() => onAction(action)}
-                    >
-                      {meta.label}
-                    </Button>
-                  );
-                })}
-              </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 mb-2.5">
+              Receiving
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                className="shadow-sm"
+                leftIcon={meta.icon}
+                onClick={onReceive}
+                fullWidth
+              >
+                {meta.label}
+              </Button>
             </div>
-          )}
-          {terminalActions.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-400 mb-2.5">
-                Final
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                {terminalActions.map(action => {
-                  const meta = ACTION_META[action];
-                  return (
-                    <Button
-                      key={action}
-                      variant={meta.tone === 'primary' ? 'primary' : 'outline'}
-                      size="sm"
-                      className={meta.tone === 'primary' ? 'shadow-sm' : undefined}
-                      leftIcon={meta.icon}
-                      onClick={() => onAction(action)}
-                      fullWidth
-                    >
-                      {meta.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </Card>
@@ -638,6 +509,7 @@ interface DocumentInfoSidebarProps {
   document: DocumentDetail;
   office: { code: string; name: string } | undefined;
   isOverdue: boolean;
+  onViewAttachment: (attachment: DocumentAttachment) => void;
   onDownloadAttachment: (id: string) => void;
 }
 
@@ -645,6 +517,7 @@ function DocumentInfoSidebar({
   document: d,
   office,
   isOverdue,
+  onViewAttachment,
   onDownloadAttachment,
 }: DocumentInfoSidebarProps) {
   return (
@@ -656,19 +529,17 @@ function DocumentInfoSidebar({
         <ul className="divide-y divide-slate-100">
           <PersonLine label="Encoded by" person={d.encodedBy} />
           <PersonLine label="Received by" person={d.receivedBy} />
-          <PersonLine label="Approved by" person={d.approvedBy} />
-          <PersonLine label="Released by" person={d.releasedBy} />
           <InfoLine
             label="Holder"
             value={d.currentHolder?.fullName ?? d.encodedBy?.fullName ?? 'Unassigned'}
           />
           <InfoLine
             label="Originating office"
-            value={office?.code && office?.name ? `${office.code} — ${office.name}` : (d.originatingOfficeName ?? '—')}
+            value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : (d.originatingOfficeName ?? 'â€”')}
           />
           <InfoLine
             label="Current office"
-            value={office?.code && office?.name ? `${office.code} — ${office.name}` : '—'}
+            value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : 'â€”'}
           />
         </ul>
       </Card>
@@ -686,7 +557,7 @@ function DocumentInfoSidebar({
           <InfoLine
             label="Source"
             value={
-              d.source === 'internal' ? 'Internal' : `External${d.senderName ? ` · ${d.senderName}` : ''}`
+              d.source === 'internal' ? 'Internal' : `External${d.senderName ? ` Â· ${d.senderName}` : ''}`
             }
           />
           <InfoLine
@@ -695,8 +566,8 @@ function DocumentInfoSidebar({
               d.destinationsAllOffices
                 ? 'All Offices'
                 : d.recipients.length > 0
-                  ? d.recipients.map(r => `${r.office.code} — ${r.office.name}`).join(', ')
-                  : '—'
+                  ? d.recipients.map(r => `${r.office.code} â€” ${r.office.name}`).join(', ')
+                  : 'â€”'
             }
           />
           <InfoLine label="Created" value={formatDate(d.createdAt, true)} />
@@ -721,7 +592,7 @@ function DocumentInfoSidebar({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 truncate">{att.fileName}</p>
                   <p className="text-[11px] text-slate-500">
-                    {(att.sizeBytes / 1024).toFixed(1)} KB ·{' '}
+                    {(att.sizeBytes / 1024).toFixed(1)} KB Â·{' '}
                     {att.mimeType.split('/').pop()?.toUpperCase() ?? 'FILE'}
                   </p>
                 </div>
@@ -768,7 +639,7 @@ function DocumentInfoSidebar({
 function PersonLine({ label, person }: { label: string; person: DocumentPerson | null }) {
   return (
     <li className="px-5 py-2.5 flex items-center gap-3">
-      <Avatar name={person?.fullName ?? '—'} color={person ? colorForId(person.id) : 'bg-slate-400'} size="sm" />
+      <Avatar name={person?.fullName ?? 'â€”'} color={person ? colorForId(person.id) : 'bg-slate-400'} size="sm" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-500">{label}</p>
         <p className="text-sm font-medium text-slate-900 truncate">
@@ -844,7 +715,7 @@ function HistoryPanel({ document, history, userById }: HistoryPanelProps) {
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">
                           Status change
-                          {actor ? ` · by ${actor.fullName}` : ''}
+                          {actor ? ` Â· by ${actor.fullName}` : ''}
                         </p>
                       </div>
                       <div className="text-right shrink-0">

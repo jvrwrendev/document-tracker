@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -27,9 +27,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { DocumentTypesModule } from './modules/document-types/document-types.module';
 import { DocumentAttachmentsModule } from './modules/document-attachments/document-attachments.module';
 import { DocumentReviewModule } from './modules/document-review/document-review.module';
-import { DocumentReleaseModule } from './modules/document-release/document-release.module';
 import { DocumentTrackingModule } from './modules/document-tracking/document-tracking.module';
-import { DocumentArchiveModule } from './modules/document-archive/document-archive.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
@@ -60,9 +58,7 @@ import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
     DocumentTypesModule,
     DocumentAttachmentsModule,
     DocumentReviewModule,
-    DocumentReleaseModule,
     DocumentTrackingModule,
-    DocumentArchiveModule,
     NotificationsModule,
     AuditLogsModule,
     FormDraftsModule,

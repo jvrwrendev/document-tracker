@@ -259,7 +259,8 @@ model Document {
   currentHolderId        String?
   encodedById            String
   receivedById           String?
-  destinationsAllOffices Boolean                @default(true)
+  // "All offices" is opt-in; omitting it must never fan out to every office.
+  destinationsAllOffices Boolean                @default(false)
   dateReceived           DateTime?
   approvedById           String?
   approvedAt             DateTime?

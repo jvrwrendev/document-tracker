@@ -25,7 +25,6 @@ import { usePagination } from '@/hooks/usePagination';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
 import { useOfficeLookup } from '@/hooks/useLookups';
 import {
-  ALL_DOCUMENT_STATUSES,
   ALL_DOCUMENT_TYPES,
   ALL_CLASSIFICATIONS,
   DOCUMENT_STATUS_LABELS,
@@ -34,9 +33,10 @@ import {
 } from '@/constants';
 import { formatDate, toCsv, downloadCsv } from '@/lib/utils';
 
+// The Archive is read-only: it lists documents that the backend has
+// automatically archived, so a status filter is no longer meaningful.
 const DEFAULT_FILTERS = {
   search: '',
-  status: 'all',
   type: 'all',
   classification: 'all',
   office: 'all',
@@ -50,7 +50,6 @@ export function ArchivePage() {
   const officeById = useOfficeLookup();
 
   const [search, setSearch] = useState(DEFAULT_FILTERS.search);
-  const [statusFilter, setStatusFilter] = useState(DEFAULT_FILTERS.status);
   const [typeFilter, setTypeFilter] = useState(DEFAULT_FILTERS.type);
   const [classificationFilter, setClassificationFilter] = useState(DEFAULT_FILTERS.classification);
   const [officeFilter, setOfficeFilter] = useState(DEFAULT_FILTERS.office);
@@ -58,7 +57,7 @@ export function ArchivePage() {
   const [sourceFilter, setSourceFilter] = useState(DEFAULT_FILTERS.source);
 
   const archivedDocs = useMemo(
-    () => documents.filter(d => d.status === 'archived' || d.status === 'released'),
+    () => documents.filter(d => d.status === 'archived'),
     [documents]
   );
 
@@ -77,7 +76,6 @@ export function ArchivePage() {
         const haystack = `${d.trackingNumber} ${d.title} ${d.senderName ?? ''} ${d.tags.join(' ')}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (statusFilter !== 'all' && d.status !== statusFilter) return false;
       if (typeFilter !== 'all' && d.type !== typeFilter) return false;
       if (classificationFilter !== 'all' && d.classification !== classificationFilter) return false;
       if (officeFilter !== 'all' && d.currentOfficeId !== officeFilter) return false;
@@ -85,14 +83,13 @@ export function ArchivePage() {
       if (sourceFilter !== 'all' && d.source !== sourceFilter) return false;
       return true;
     });
-  }, [archivedDocs, search, statusFilter, typeFilter, classificationFilter, officeFilter, priorityFilter, sourceFilter]);
+  }, [archivedDocs, search, typeFilter, classificationFilter, officeFilter, priorityFilter, sourceFilter]);
 
   const pagination = usePagination({ totalItems: filtered.length, initialPageSize: 10 });
   const paged = filtered.slice(pagination.start, pagination.end);
 
   const hasActiveFilters =
     search !== DEFAULT_FILTERS.search ||
-    statusFilter !== DEFAULT_FILTERS.status ||
     typeFilter !== DEFAULT_FILTERS.type ||
     classificationFilter !== DEFAULT_FILTERS.classification ||
     officeFilter !== DEFAULT_FILTERS.office ||
@@ -101,7 +98,6 @@ export function ArchivePage() {
 
   const resetFilters = () => {
     setSearch(DEFAULT_FILTERS.search);
-    setStatusFilter(DEFAULT_FILTERS.status);
     setTypeFilter(DEFAULT_FILTERS.type);
     setClassificationFilter(DEFAULT_FILTERS.classification);
     setOfficeFilter(DEFAULT_FILTERS.office);
@@ -201,15 +197,6 @@ export function ArchivePage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Select
-              label="Status"
-              value={statusFilter}
-              onChange={e => { setStatusFilter(e.target.value); pagination.reset(); }}
-              options={[
-                { value: 'all', label: 'All Status' },
-                ...ALL_DOCUMENT_STATUSES.map(s => ({ value: s, label: DOCUMENT_STATUS_LABELS[s] })),
-              ]}
-            />
             <Select
               label="Type"
               value={typeFilter}

@@ -34,7 +34,9 @@ import type { DocumentListItem } from '@/features/documents/types/document';
 
 type InboxTab = 'pending' | 'received' | 'all';
 
-const FINALIZED_STATUSES = ['released', 'archived', 'rejected'];
+// Only the automatic archival status is finalized; an archived document can no
+// longer be received.
+const FINALIZED_STATUSES = ['archived'];
 
 export function InboxPage() {
   const user = useCurrentUser();

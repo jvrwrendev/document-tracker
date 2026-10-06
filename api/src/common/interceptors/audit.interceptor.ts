@@ -1,4 +1,4 @@
-import {
+﻿import {
   CallHandler,
   ExecutionContext,
   Injectable,
@@ -37,7 +37,7 @@ export class AuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as AuthenticatedUser | undefined;
     if (!user) {
-      // No authenticated user — let the request proceed; auth guard will fail it.
+      // No authenticated user â€” let the request proceed; auth guard will fail it.
       return next.handle();
     }
 
@@ -157,8 +157,6 @@ export class AuditInterceptor implements NestInterceptor {
     if (url.startsWith('/documents')) return 'Document';
     if (url.startsWith('/document-routing')) return 'DocumentRoutingStep';
     if (url.startsWith('/document-review')) return 'DocumentReview';
-    if (url.startsWith('/document-release')) return 'DocumentRelease';
-    if (url.startsWith('/document-archive')) return 'DocumentArchive';
     if (url.startsWith('/document-attachments')) return 'DocumentAttachment';
     if (url.startsWith('/users')) return 'User';
     if (url.startsWith('/offices')) return 'Office';
@@ -167,17 +165,15 @@ export class AuditInterceptor implements NestInterceptor {
   }
 
   private describe(meta: AuditMetadata, request: Request, result: unknown): string {
-    const body = (request.body ?? {}) as Record<string, unknown>;
+const body = (request.body ?? {}) as Record<string, unknown>;
     const fromStatus = typeof body.fromStatus === 'string' ? body.fromStatus : undefined;
-    const toStatus = typeof body.toStatus === 'string' ? body.toStatus : undefined;
     const actionKind = typeof body.action === 'string' ? body.action : undefined;
-    const method = typeof body.method === 'string' ? body.method : undefined;
 
     switch (meta.action) {
       case 'document.register':
         return `Document registered (${String(body.title ?? 'untitled')})`;
-      case 'document.transition':
-        return `Transitioned ${fromStatus ?? '?'} → ${toStatus ?? '?'}`;
+      case 'document.receive':
+        return 'Document received by a recipient office';
       case 'document.delete':
         return `Document deleted`;
       case 'document.delete-all': {
@@ -191,10 +187,6 @@ export class AuditInterceptor implements NestInterceptor {
         return `Holder assigned (${String(body.holderId ?? body.holder ?? '') || 'unset'})`;
       case 'review.create':
         return `Review: ${actionKind ?? 'commented'}`;
-      case 'release.create':
-        return `Released via ${method ?? 'unknown'}`;
-      case 'archive.create':
-        return `Archived at ${String(body.location ?? 'unspecified')}`;
       case 'routing.create-plan':
         return `Routing plan created`;
       case 'routing.advance':

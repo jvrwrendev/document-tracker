@@ -5,8 +5,6 @@ export { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail'
 export type { UseDocumentDetailReturn } from '@/features/documents/hooks/useDocumentDetail';
 export { useRegisterDocument } from '@/features/documents/hooks/useRegisterDocument';
 export type { UseRegisterDocumentReturn } from '@/features/documents/hooks/useRegisterDocument';
-export { useDocumentTransition } from '@/features/documents/hooks/useDocumentTransition';
-export type { UseDocumentTransitionReturn } from '@/features/documents/hooks/useDocumentTransition';
 export { useDocumentReceive } from '@/features/documents/hooks/useDocumentReceive';
 export type { UseDocumentReceiveReturn } from '@/features/documents/hooks/useDocumentReceive';
 export { useDocumentHistory } from '@/features/documents/hooks/useDocumentHistory';
@@ -14,5 +12,3 @@ export type { UseDocumentHistoryReturn } from '@/features/documents/hooks/useDoc
 export { useDocumentTimeline } from '@/features/documents/hooks/useDocumentTimeline';
 export type { UseDocumentTimelineReturn } from '@/features/documents/hooks/useDocumentTimeline';
 export { useRoutingOptions } from '@/features/documents/hooks/useRoutingOptions';
-export { useReleaseQueue } from '@/features/documents/hooks/useReleaseQueue';
-export type { UseReleaseQueueReturn, ReleaseTab } from '@/features/documents/hooks/useReleaseQueue';
