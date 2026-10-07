@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -41,7 +41,6 @@ import { useRecipientNote } from '@/features/documents/hooks/useRecipientNote';
 import { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail';
 import { DocumentTracker } from '@/features/documents/components/DocumentTracker';
 import { RecipientTracking } from '@/features/documents/components/RecipientTracking';
-import { AttachmentPreview } from '@/features/documents/components/AttachmentPreview';
 import type { DocumentStatus, Permission } from '@/types';
 import type {
   DocumentAttachment,
@@ -532,32 +531,6 @@ function DocumentInfoSidebar({
   onViewAttachment,
   onDownloadAttachment,
 }: DocumentInfoSidebarProps) {
-  const [previewAtt, setPreviewAtt] = useState<DocumentAttachment | null>(null);
-  const openTimer = useRef<number | null>(null);
-  const closeTimer = useRef<number | null>(null);
-
-  const clearTimers = () => {
-    if (openTimer.current !== null) window.clearTimeout(openTimer.current);
-    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
-    openTimer.current = null;
-    closeTimer.current = null;
-  };
-
-  const scheduleOpen = (att: DocumentAttachment) => {
-    clearTimers();
-    openTimer.current = window.setTimeout(() => setPreviewAtt(att), 300);
-  };
-
-  const scheduleClose = () => {
-    clearTimers();
-    closeTimer.current = window.setTimeout(() => setPreviewAtt(null), 200);
-  };
-
-  const cancelClose = () => {
-    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
-    closeTimer.current = null;
-  };
-
   return (
     <>
       <Card padded={false}>
@@ -672,6 +645,7 @@ function DocumentInfoSidebar({
           </div>
         </div>
       )}
+
     </>
   );
 }
