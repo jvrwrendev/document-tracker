@@ -12,6 +12,7 @@ import { ChangePasswordPage } from '@/features/authentication/pages/ChangePasswo
 import { DashboardPage } from '@/features/documents/pages/DashboardPage';
 import { DocumentsListPage } from '@/features/documents/pages/DocumentsListPage';
 import { DocumentDetailPage } from '@/features/documents/pages/DocumentDetailPage';
+import { AttachmentViewerPage } from '@/features/documents/pages/AttachmentViewerPage';
 import { DocumentRegistrationPage } from '@/features/documents/pages/DocumentRegistrationPage';
 import { InboxPage } from '@/features/documents/pages/InboxPage';
 import { OutboxPage } from '@/features/documents/pages/OutboxPage';
@@ -44,6 +45,16 @@ future={{
           <ConfirmDialogProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+
+              <Route
+                path="/attachments/:id/view"
+                element={
+                  <ProtectedRoute>
+                    <AttachmentViewerPage />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 
