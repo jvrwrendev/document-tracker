@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
 import { MailConfig } from '../../config/mail.config';
+import { NodemailConfig } from '../../config/nodemail.config';
 
 export type CredentialsEmailStatus = 'sent' | 'skipped' | 'failed';
 
@@ -10,6 +11,12 @@ export interface AccountCreatedEmailInput {
   fullName: string;
   email: string;
   temporaryPassword: string;
+}
+
+export interface VerificationCodeEmailInput {
+  to: string;
+  code: string;
+  expiresInMinutes: number;
 }
 
 interface SendInput {
@@ -23,14 +30,22 @@ interface SendInput {
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly config: MailConfig;
+  private readonly nodemail: NodemailConfig;
   private transport: Transporter | null = null;
+  private verificationTransport: Transporter | null = null;
 
   constructor(configService: ConfigService) {
     this.config = configService.get<MailConfig>('mail') ?? ({} as MailConfig);
+    this.nodemail =
+      configService.get<NodemailConfig>('nodemail') ?? ({} as NodemailConfig);
   }
 
   get isConfigured(): boolean {
     return Boolean(this.config.host && this.config.fromAddress);
+  }
+
+  get isVerificationConfigured(): boolean {
+    return Boolean(this.nodemail.user && this.nodemail.pass);
   }
 
   get recipientName(): string {
@@ -52,6 +67,23 @@ export class MailService {
       });
     }
     return this.transport;
+  }
+
+  private getVerificationTransport(): Transporter | null {
+    if (!this.isVerificationConfigured) return null;
+    if (!this.verificationTransport) {
+      this.verificationTransport = createTransport({
+        host: this.nodemail.host,
+        port: this.nodemail.port,
+        secure: this.nodemail.secure,
+        requireTLS: this.nodemail.requireTls,
+        auth: {
+          user: this.nodemail.user,
+          pass: this.nodemail.pass,
+        },
+      });
+    }
+    return this.verificationTransport;
   }
 
   async send(input: SendInput): Promise<void> {
@@ -131,5 +163,51 @@ export class MailService {
       '</div>',
     ].join('');
     await this.send({ to: input.to, subject, text, html });
+  }
+
+  /**
+   * Sends a six-digit email verification code through the dedicated Gmail SMTP
+   * transport. The code must never be logged by this method or its callers.
+   */
+  async sendVerificationCode(input: VerificationCodeEmailInput): Promise<void> {
+    const transport = this.getVerificationTransport();
+    if (!transport) {
+      throw new Error(
+        'Verification email is not configured (NODEMAIL_USER/NODEMAIL_PASS missing).',
+      );
+    }
+
+    const minutes = Math.max(1, Math.round(input.expiresInMinutes));
+    const subject = 'Your CityDocs DMS verification code';
+    const text = [
+      'Your CityDocs DMS verification code is:',
+      '',
+      input.code,
+      '',
+      `This code expires in ${minutes} minutes and can be used only once.`,
+      'If you did not create a DMS account, you can ignore this email.',
+    ].join('\n');
+    const html = [
+      '<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;max-width:520px;margin:0 auto;">',
+      '<h2 style="color:#1d4ed8;margin:0 0 12px;">Verify your email address</h2>',
+      '<p style="margin:0 0 16px;">Use the code below to finish creating your CityDocs DMS account.</p>',
+      `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;text-align:center;margin:0 0 16px;">
+        <span style="font-size:32px;font-weight:700;letter-spacing:10px;color:#0f172a;">${input.code}</span>
+      </div>`,
+      `<p style="margin:0 0 8px;">This code expires in <strong>${minutes} minutes</strong> and can be used only once.</p>`,
+      '<p style="color:#64748b;font-size:12px;margin-top:24px;">If you did not create a DMS account, you can ignore this email. Do not reply to this message.</p>',
+      '</div>',
+    ].join('');
+
+    await transport.sendMail({
+      from: {
+        name: this.nodemail.fromName,
+        address: this.nodemail.fromAddress || this.nodemail.user,
+      },
+      to: input.to,
+      subject,
+      text,
+      html,
+    });
   }
 }

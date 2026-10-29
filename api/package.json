@@ -23,7 +23,8 @@
     "prisma:studio": "prisma studio",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "test:email-verification": "node test/email-verification.e2e.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.1",

@@ -16,6 +16,8 @@ const SKIP_PATHS = [
   `${API_PREFIX}/auth/login`,
   `${API_PREFIX}/auth/refresh`,
   `${API_PREFIX}/auth/register`,
+  `${API_PREFIX}/auth/verify-email`,
+  `${API_PREFIX}/auth/resend-verification`,
   `${API_PREFIX}/auth/forgot-password`,
   `${API_PREFIX}/auth/reset-password`,
 ];

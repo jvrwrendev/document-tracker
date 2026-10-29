@@ -46,6 +46,29 @@ export interface RegisterRequest {
   password: string;
 }
 
+export interface RegisterResponse {
+  requiresEmailVerification: true;
+  email: string;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface ResendVerificationResponse {
+  success: true;
+  sent: boolean;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+}
+
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
@@ -89,7 +112,19 @@ export const authApi = {
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
 
   register: (payload: RegisterRequest) =>
-    request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+    request<RegisterResponse>('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+
+  verifyEmail: (payload: VerifyEmailRequest) =>
+    request<AuthResponse>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  resendVerification: (payload: ResendVerificationRequest) =>
+    request<ResendVerificationResponse>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   refresh: () => request<AuthResponse>('/auth/refresh', { method: 'POST' }),
 

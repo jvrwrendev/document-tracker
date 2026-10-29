@@ -4,13 +4,22 @@ import type { Permission, User, UserRole } from '@/types';
 import { ROLE_PERMISSIONS } from '@/constants';
 import { authService } from '@/features/authentication/services/authService';
 import type { AuthUser } from '@/features/authentication/api/authApi';
+import { ApiError } from '@/lib/apiClient';
+
+interface LoginResult {
+  ok: boolean;
+  error?: string;
+  mustChangePassword?: boolean;
+  code?: string;
+  email?: string;
+}
 
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
   mustChangePassword: boolean;
-  login: (emailOrUsername: string, password: string) => Promise<{ ok: boolean; error?: string; mustChangePassword?: boolean }>;
+  login: (emailOrUsername: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
   allSwitchableUsers: User[];
@@ -76,7 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(mapped);
       return { ok: true, mustChangePassword: authenticated.mustChangePassword };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : 'Sign in failed' };
+      const details =
+        error instanceof ApiError
+          ? (error.details as { code?: string; email?: string } | undefined)
+          : undefined;
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Sign in failed',
+        code: details?.code,
+        email: details?.email,
+      };
     } finally {
       setLoading(false);
     }

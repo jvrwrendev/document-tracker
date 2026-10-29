@@ -7,8 +7,12 @@ import type {
   ForgotPasswordResponse,
   LoginRequest,
   RegisterRequest,
+  RegisterResponse,
+  ResendVerificationRequest,
+  ResendVerificationResponse,
   ResetPasswordRequest,
   UpdateMyProfileRequest,
+  VerifyEmailRequest,
 } from '@/features/authentication/api/authApi';
 
 export const authService = {
@@ -18,9 +22,17 @@ export const authService = {
     return response.user;
   },
 
-  async register(payload: RegisterRequest): Promise<AuthUser> {
-    const response = await authApi.register(payload);
+  async register(payload: RegisterRequest): Promise<RegisterResponse> {
+    return authApi.register(payload);
+  },
+
+  async verifyEmail(payload: VerifyEmailRequest): Promise<AuthUser> {
+    const response = await authApi.verifyEmail(payload);
     return response.user;
+  },
+
+  resendVerification(payload: ResendVerificationRequest): Promise<ResendVerificationResponse> {
+    return authApi.resendVerification(payload);
   },
 
   async restoreSession(): Promise<AuthUser | null> {

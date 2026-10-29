@@ -1,21 +1,34 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, Role } from '@prisma/client';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { constantTimeVerify, hashPassword } from '../../common/utils/hash.util';
+import {
+  constantTimeVerify,
+  hashPassword,
+  verifyPassword,
+} from '../../common/utils/hash.util';
 import { randomToken, sha256Hex } from '../../common/utils/token.util';
 import { normalizeClientIp } from '../../common/utils/ip.util';
 import { AuthConfig, SameSite } from '../../config/auth.config';
 import { COOKIE_NAMES, COOKIE_PATHS } from '../../common/constants/cookie.constants';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import {
+  RegisterResponseDto,
+  ResendVerificationResponseDto,
+} from './dto/email-verification-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -29,6 +42,7 @@ import { Request, Response } from 'express';
 import type { CookieOptions } from 'express';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { RolesService } from '../roles/roles.service';
+import { MailService } from '../mail/mail.service';
 
 type AuthUserWithEmployee = Prisma.UserGetPayload<{
   include: {
@@ -87,6 +101,10 @@ function parseTtlMs(ttl: string): number {
 
 const RESET_TOKEN_TTL = '30m';
 
+const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
+const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+const VERIFICATION_MAX_ATTEMPTS = 5;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -100,6 +118,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly rolesService: RolesService,
+    private readonly mailService: MailService,
   ) {
     const authCfg = this.configService.getOrThrow<AuthConfig>('auth');
     this.accessTtlMs = parseTtlMs(authCfg.access.ttl);
@@ -128,6 +147,14 @@ export class AuthService {
     }
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.emailVerifiedAt) {
+      this.logger.log(`Login blocked for unverified account ${user.id}`);
+      throw new ForbiddenException({
+        message: 'Please verify your email address before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      });
     }
 
     const { sessionId, refreshRaw } = await this.issueSession(user.id);
@@ -209,7 +236,13 @@ export class AuthService {
     this.logger.log(`Password reset completed for user ${user.id}`);
   }
 
-  async register(dto: RegisterDto, req: Request, res: Response): Promise<AuthResponseDto> {
+  async register(dto: RegisterDto): Promise<RegisterResponseDto> {
+    if (!this.mailService.isVerificationConfigured) {
+      throw new ServiceUnavailableException(
+        'Email verification is not configured. Please contact your system administrator.',
+      );
+    }
+
     const employeeNo = dto.employeeNo.trim();
 
     const employee = await this.prisma.employee.findUnique({
@@ -250,20 +283,216 @@ export class AuthService {
         username: username ?? null,
         email,
         passwordHash,
-        role: dto.role,
         status: 'ACTIVE',
+        emailVerifiedAt: null,
         employeeId: employee.id,
       },
+      select: { id: true },
+    });
+
+    try {
+      const { code } = await this.createVerificationChallenge(user.id);
+      await this.mailService.sendVerificationCode({
+        to: email,
+        code,
+        expiresInMinutes: VERIFICATION_CODE_TTL_MS / 60_000,
+      });
+    } catch (err) {
+      // The account must not exist without a usable verification challenge;
+      // otherwise the employee could never register again.
+      await this.prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+      this.logger.error(
+        `Failed to send verification email for user ${user.id}.`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw new ServiceUnavailableException(
+        'We could not send the verification email right now. Please try again shortly.',
+      );
+    }
+
+    this.logger.log(
+      `Registered unverified user ${user.id} for employee ${employee.employeeNo}`,
+    );
+
+    return {
+      requiresEmailVerification: true,
+      email,
+      expiresInSeconds: VERIFICATION_CODE_TTL_MS / 1000,
+      resendAvailableInSeconds: VERIFICATION_RESEND_COOLDOWN_MS / 1000,
+    };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto, res: Response): Promise<AuthResponseDto> {
+    const email = dto.email.trim().toLowerCase();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
       include: { employee: { select: employeeSelect } },
     });
+
+    if (!user) {
+      // Keep the failure path timing-comparable to a real code check.
+      await constantTimeVerify(dto.code, null);
+      throw new BadRequestException({
+        code: 'INVALID_CODE',
+        message: 'That verification code is incorrect.',
+      });
+    }
+
+    if (user.emailVerifiedAt) {
+      throw new BadRequestException({
+        code: 'ALREADY_VERIFIED',
+        message: 'This email address is already verified. You can sign in.',
+      });
+    }
+
+    const challenge = await this.prisma.emailVerificationCode.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!challenge) {
+      throw new BadRequestException({
+        code: 'CODE_EXPIRED',
+        message: 'This verification code has expired. Request a new one.',
+      });
+    }
+
+    if (challenge.expiresAt.getTime() <= Date.now()) {
+      await this.prisma.emailVerificationCode.deleteMany({
+        where: { userId: user.id },
+      });
+      throw new BadRequestException({
+        code: 'CODE_EXPIRED',
+        message: 'This verification code has expired. Request a new one.',
+      });
+    }
+
+    if (challenge.attempts >= VERIFICATION_MAX_ATTEMPTS) {
+      await this.prisma.emailVerificationCode.deleteMany({
+        where: { userId: user.id },
+      });
+      throw new BadRequestException({
+        code: 'TOO_MANY_ATTEMPTS',
+        message: 'Too many incorrect attempts. Request a new verification code.',
+      });
+    }
+
+    const ok = await verifyPassword(challenge.codeHash, dto.code);
+    if (!ok) {
+      const attempts = challenge.attempts + 1;
+      if (attempts >= VERIFICATION_MAX_ATTEMPTS) {
+        await this.prisma.emailVerificationCode.deleteMany({
+          where: { userId: user.id },
+        });
+        throw new BadRequestException({
+          code: 'TOO_MANY_ATTEMPTS',
+          message: 'Too many incorrect attempts. Request a new verification code.',
+        });
+      }
+
+      await this.prisma.emailVerificationCode.update({
+        where: { userId: user.id },
+        data: { attempts },
+      });
+      const remaining = VERIFICATION_MAX_ATTEMPTS - attempts;
+      throw new BadRequestException({
+        code: 'INVALID_CODE',
+        message: `That verification code is incorrect. ${remaining} ${
+          remaining === 1 ? 'attempt' : 'attempts'
+        } remaining.`,
+      });
+    }
+
+    const verifiedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: verifiedAt },
+      }),
+      this.prisma.emailVerificationCode.deleteMany({
+        where: { userId: user.id },
+      }),
+    ]);
 
     const { sessionId, refreshRaw } = await this.issueSession(user.id);
     const accessToken = this.signAccessToken(user.id, user.role, sessionId);
     const csrfRaw = randomToken(32);
     this.setAuthCookies(res, accessToken, refreshRaw, this.refreshTtlMs, csrfRaw);
 
-    this.logger.log(`Registered user ${user.id} for employee ${employee.employeeNo}`);
-    return { user: await this.toUserDto(user) };
+    this.logger.log(`Email verified for user ${user.id}`);
+    return { user: await this.toUserDto({ ...user, emailVerifiedAt: verifiedAt }) };
+  }
+
+  async resendVerification(
+    dto: ResendVerificationDto,
+  ): Promise<ResendVerificationResponseDto> {
+    if (!this.mailService.isVerificationConfigured) {
+      throw new ServiceUnavailableException(
+        'Email verification is not configured. Please contact your system administrator.',
+      );
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, emailVerifiedAt: true },
+    });
+
+    const generic: ResendVerificationResponseDto = {
+      success: true,
+      sent: false,
+      expiresInSeconds: VERIFICATION_CODE_TTL_MS / 1000,
+      resendAvailableInSeconds: VERIFICATION_RESEND_COOLDOWN_MS / 1000,
+    };
+
+    // Do not reveal whether an account exists or is already verified.
+    if (!user || user.emailVerifiedAt) {
+      return generic;
+    }
+
+    const existing = await this.prisma.emailVerificationCode.findUnique({
+      where: { userId: user.id },
+      select: { lastSentAt: true, expiresAt: true },
+    });
+    if (existing) {
+      const elapsed = Date.now() - existing.lastSentAt.getTime();
+      if (elapsed < VERIFICATION_RESEND_COOLDOWN_MS) {
+        return {
+          ...generic,
+          resendAvailableInSeconds: Math.max(
+            1,
+            Math.ceil((VERIFICATION_RESEND_COOLDOWN_MS - elapsed) / 1000),
+          ),
+          expiresInSeconds: Math.max(
+            1,
+            Math.ceil((existing.expiresAt.getTime() - Date.now()) / 1000),
+          ),
+        };
+      }
+    }
+
+    try {
+      const { code } = await this.createVerificationChallenge(user.id);
+      await this.mailService.sendVerificationCode({
+        to: user.email ?? email,
+        code,
+        expiresInMinutes: VERIFICATION_CODE_TTL_MS / 60_000,
+      });
+    } catch (err) {
+      await this.prisma.emailVerificationCode
+        .deleteMany({ where: { userId: user.id } })
+        .catch(() => undefined);
+      this.logger.error(
+        `Failed to resend verification email for user ${user.id}.`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw new ServiceUnavailableException(
+        'We could not send the verification email right now. Please try again shortly.',
+      );
+    }
+
+    this.logger.log(`Verification code resent for user ${user.id}`);
+    return { ...generic, sent: true };
   }
 
   async refresh(req: Request, res: Response): Promise<AuthResponseDto> {
@@ -471,6 +700,39 @@ export class AuthService {
   }
 
   // ---------- Internals ----------
+
+  /**
+   * Generates a cryptographically random six-digit code, stores only its argon2
+   * hash, and resets the attempt counter. The plaintext is returned to the
+   * caller solely so it can be delivered by email.
+   */
+  private async createVerificationChallenge(
+    userId: string,
+  ): Promise<{ code: string }> {
+    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const codeHash = await hashPassword(code);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + VERIFICATION_CODE_TTL_MS);
+
+    await this.prisma.emailVerificationCode.upsert({
+      where: { userId },
+      create: {
+        userId,
+        codeHash,
+        expiresAt,
+        lastSentAt: now,
+        attempts: 0,
+      },
+      update: {
+        codeHash,
+        expiresAt,
+        lastSentAt: now,
+        attempts: 0,
+      },
+    });
+
+    return { code };
+  }
 
   private async issueSession(userId: string): Promise<{ sessionId: string; refreshRaw: string }> {
     const refreshRaw = randomToken(64);

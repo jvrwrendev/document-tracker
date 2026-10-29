@@ -128,11 +128,14 @@ model User {
   role               Role          @default(DOCUMENT_ENCODER)
   status             AccountStatus @default(ACTIVE)
   mustChangePassword Boolean       @default(false)
+  emailVerifiedAt    DateTime?
 
   employeeId String   @unique
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   authSessions AuthSession[]
+
+  emailVerification EmailVerificationCode?
 
   formDrafts FormDraft[]
 
@@ -157,6 +160,23 @@ model AuthSession {
 
   @@index([userId])
   @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+/// One active email-verification challenge per account. The six-digit code is
+/// stored only as an argon2 hash; the plaintext exists solely in the email.
+model EmailVerificationCode {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  codeHash   String
+  expiresAt  DateTime
+  lastSentAt DateTime
+  attempts   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([expiresAt])
 }
 

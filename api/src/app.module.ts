@@ -16,6 +16,7 @@ import corsConfig from './config/cors.config';
 import throttlerConfig from './config/throttler.config';
 import storageConfig from './config/storage.config';
 import mailConfig from './config/mail.config';
+import nodemailConfig from './config/nodemail.config';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -40,7 +41,7 @@ import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, authConfig, corsConfig, throttlerConfig, storageConfig, mailConfig],
+      load: [appConfig, authConfig, corsConfig, throttlerConfig, storageConfig, mailConfig, nodemailConfig],
     }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],

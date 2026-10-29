@@ -66,6 +66,15 @@ export function LoginPage() {
         toast.success('Welcome back', 'You have been signed in successfully.');
         navigate('/dashboard');
       }
+    } else if (res.code === 'EMAIL_NOT_VERIFIED') {
+      const email = res.email ?? username;
+      toast.info(
+        'Verify your email',
+        'Enter the six-digit code we sent to your email address.',
+      );
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`, {
+        state: { email },
+      });
     } else {
       setError(res.error ?? 'Sign in failed. Please check your credentials.');
     }
@@ -222,7 +231,7 @@ export function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            Need an account? Contact your system administrator to request access.
+            New employee? Contact your system administrator for access.
           </p>
         </div>
       </div>

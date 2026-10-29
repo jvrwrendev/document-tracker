@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
 import { LoginPage } from '@/features/authentication/pages/LoginPage';
+import { VerifyEmailPage } from '@/features/authentication/pages/VerifyEmailPage';
 import { ForgotPasswordPage } from '@/features/authentication/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/authentication/pages/ResetPasswordPage';
 import { ChangePasswordPage } from '@/features/authentication/pages/ChangePasswordPage';
@@ -45,6 +46,7 @@ future={{
           <ConfirmDialogProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
 
               <Route
                 path="/attachments/:id/view"

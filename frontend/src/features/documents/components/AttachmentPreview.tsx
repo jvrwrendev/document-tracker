@@ -108,7 +108,7 @@ export function AttachmentPreview({ attachmentId }: { attachmentId: string }) {
   }, [kind, blobUrl]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 bg-white">
       {error ? (
         <p className="text-sm text-rose-600 py-10">{error}</p>
       ) : !blobUrl || !kind ? (

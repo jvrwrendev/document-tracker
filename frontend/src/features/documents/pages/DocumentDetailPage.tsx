@@ -15,6 +15,8 @@ import {
   AlertCircle,
   ArrowRight,
   Calendar,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -41,6 +43,7 @@ import { useRecipientNote } from '@/features/documents/hooks/useRecipientNote';
 import { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail';
 import { DocumentTracker } from '@/features/documents/components/DocumentTracker';
 import { RecipientTracking } from '@/features/documents/components/RecipientTracking';
+import { AttachmentPreview } from '@/features/documents/components/AttachmentPreview';
 import type { DocumentStatus, Permission } from '@/types';
 import type {
   DocumentAttachment,
@@ -97,6 +100,8 @@ export function DocumentDetailPage() {
   const [actionModal, setActionModal] = useState<ActionType | null>(null);
   const [remarks, setRemarks] = useState('');
   const [actionsOpen, setActionsOpen] = useState(true);
+  const [previewAtt, setPreviewAtt] = useState<DocumentAttachment | null>(null);
+  const [previewSize, setPreviewSize] = useState<'normal' | 'maximized'>('normal');
 
   if (documentLoading) {
     return <div className="py-20 text-center text-sm text-slate-500">Loading documentâ€¦</div>;
@@ -197,6 +202,7 @@ export function DocumentDetailPage() {
         primaryAction={receiveAvailable ? 'receive' : null}
         onPrimaryAction={() => receiveAvailable && setActionModal('receive')}
         canDownload={canDownload}
+        userById={userById}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -228,9 +234,7 @@ export function DocumentDetailPage() {
             office={office}
             isOverdue={!!isOverdue}
             showRecipients={canTrackRecipients}
-            onViewAttachment={(att: DocumentAttachment) =>
-              window.open(`/attachments/${att.id}/view`, '_blank', 'noopener,noreferrer')
-            }
+            onViewAttachment={(att: DocumentAttachment) => setPreviewAtt(att)}
             onDownloadAttachment={(attId) => void downloadAttachment(attId)}
           />
         </aside>
@@ -277,6 +281,57 @@ export function DocumentDetailPage() {
           />
         </div>
       </Modal>
+
+      <Modal
+        open={!!previewAtt}
+        onClose={() => {
+          setPreviewAtt(null);
+          setPreviewSize('normal');
+        }}
+        size="xl"
+        contentClassName={
+          previewSize === 'maximized'
+            ? '!max-w-none !max-h-none h-screen w-screen rounded-none'
+            : '!max-w-[min(820px,calc(100vw-160px))] rounded-[2px]'
+        }
+        bodyClassName="!px-0 !py-0"
+        headerActions={
+          <>
+            <button
+              type="button"
+              onClick={() => setPreviewSize(s => (s === 'maximized' ? 'normal' : 'maximized'))}
+              className="text-slate-400 hover:text-slate-700 p-1"
+              aria-label={previewSize === 'maximized' ? 'Restore' : 'Maximize'}
+              title={previewSize === 'maximized' ? 'Restore' : 'Maximize'}
+            >
+              {previewSize === 'maximized' ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+          </>
+        }
+        title={
+          previewAtt ? (
+            <span className="flex items-center gap-2 min-w-0">
+              <Paperclip className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="truncate">{previewAtt.fileName}</span>
+            </span>
+          ) : undefined
+        }
+        description={
+          previewAtt
+            ? `${(previewAtt.sizeBytes / 1024).toFixed(1)} KB · ${previewAtt.mimeType}`
+            : undefined
+        }
+      >
+        {previewAtt && (
+          <div className={previewSize === 'maximized' ? 'flex-1 overflow-y-auto' : 'min-h-[60vh]'}>
+            <AttachmentPreview attachmentId={previewAtt.id} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -291,6 +346,7 @@ interface DocumentHeroProps {
   primaryAction: ActionType | null;
   onPrimaryAction: () => void;
   canDownload: boolean;
+  userById: (id: string | null | undefined) => import('@/hooks/useLookups').LookupUser | undefined;
 }
 
 function DocumentHero({
@@ -302,9 +358,20 @@ function DocumentHero({
   primaryAction,
   onPrimaryAction,
   canDownload,
+  userById,
 }: DocumentHeroProps) {
   const isTerminal = TERMINAL_STATUSES.includes(d.status);
   const showAttachmentBar = true;
+  const latestReceive = [...d.recipients]
+    .filter(r => r.status === 'received' && r.receivedAt)
+    .sort((a, b) => new Date(b.receivedAt as string).getTime() - new Date(a.receivedAt as string).getTime())[0];
+  const latestReceiveOffice = latestReceive
+    ? `${latestReceive.office.code} — ${latestReceive.office.name}`
+    : null;
+  const latestReceiverName =
+    (latestReceive?.receivedById ? userById(latestReceive.receivedById)?.fullName : undefined) ??
+    d.receivedBy?.fullName ??
+    null;
   return (
     <header className="space-y-4">
       <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-xs text-slate-500">
@@ -353,12 +420,20 @@ function DocumentHero({
         {/* Date Received */}
         <div className="space-y-1 min-w-0">
           <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Date Receive
+            Current Date Receive 
           </span>
-          <p className="text-xs font-semibold text-slate-800 tracking-tight">
-            {d.dateReceived ? formatDate(d.dateReceived) : 'Oct 06, 2026'}
-          </p>
-        </div>
+            <p className="text-xs font-semibold text-slate-800 tracking-tight">
+              {d.dateReceived ? formatDate(d.dateReceived) : 'Oct 06, 2026'}
+            </p>
+            {latestReceiveOffice && (
+              <p className="text-[11px] text-slate-500 truncate" title={latestReceiveOffice}>
+                {latestReceiveOffice}
+              </p>
+            )}
+            {latestReceiverName && (
+              <p className="text-[11px] text-slate-500 truncate">{latestReceiverName}</p>
+            )}
+          </div>
       </div>
 
       {/* 3. Holder & Due Date Column (Cols 7-9) */}
@@ -533,7 +608,7 @@ function DocumentInfoSidebar({
 }: DocumentInfoSidebarProps) {
   return (
     <>
-      <Card padded={false}>
+      {/* <Card padded={false}>
         <div className="px-5 py-3.5 border-b border-slate-200">
           <h3 className="text-sm font-semibold text-slate-900">People</h3>
         </div>
@@ -544,16 +619,16 @@ function DocumentInfoSidebar({
             label="Holder"
             value={d.currentHolder?.fullName ?? d.encodedBy?.fullName ?? 'Unassigned'}
           />
-          {/* <InfoLine
+          <InfoLine
             label="Originating office"
             value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : (d.originatingOfficeName ?? 'â€”')}
           />
           <InfoLine
             label="Current office"
             value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : 'â€”'}
-          /> */}
+          />
         </ul>
-      </Card>
+      </Card> */}
 
       <Card padded={false}>
         <div className="px-5 py-3.5 border-b border-slate-200">

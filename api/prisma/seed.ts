@@ -251,6 +251,7 @@ async function main(): Promise<void> {
       role: 'SYSTEM_ADMIN',
       status: 'ACTIVE',
       mustChangePassword: true,
+      emailVerifiedAt: new Date(),
       employeeId: employee.id,
     },
   });

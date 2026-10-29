@@ -32,6 +32,8 @@ const REFRESH_PATH = '/auth/refresh';
 const NO_RETRY_PATHS = new Set([
   '/auth/login',
   '/auth/register',
+  '/auth/verify-email',
+  '/auth/resend-verification',
   '/auth/logout',
   '/auth/refresh',
   '/auth/forgot-password',

@@ -12,6 +12,9 @@ interface ErrorResponseBody {
   statusCode: number;
   error: string;
   message: string | string[];
+  code?: string;
+  email?: string;
+  retryAfterSeconds?: number;
   path: string;
   timestamp: string;
 }
@@ -28,6 +31,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let error = 'InternalServerError';
+    let code: string | undefined;
+    let email: string | undefined;
+    let retryAfterSeconds: number | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -39,6 +45,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const r = res as Record<string, unknown>;
         message = (r.message as string | string[]) ?? exception.message;
         error = (r.error as string) ?? exception.name;
+        if (typeof r.code === 'string') code = r.code;
+        if (typeof r.email === 'string') email = r.email;
+        if (typeof r.retryAfterSeconds === 'number') {
+          retryAfterSeconds = r.retryAfterSeconds;
+        }
       }
     } else if (exception instanceof Error) {
       this.logger.error(exception.message, exception.stack);
@@ -53,6 +64,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.url,
       timestamp: new Date().toISOString(),
     };
+    if (code) body.code = code;
+    if (email) body.email = email;
+    if (retryAfterSeconds !== undefined) body.retryAfterSeconds = retryAfterSeconds;
 
     response.status(status).json(body);
   }

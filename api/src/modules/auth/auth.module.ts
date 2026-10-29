@@ -9,12 +9,14 @@ import { AuthSessionCleanupService } from './auth-session-cleanup.service';
 import { ConfigService } from '@nestjs/config';
 import { AuthConfig } from '../../config/auth.config';
 import { RolesModule } from '../roles/roles.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     ScheduleModule.forRoot(),
     RolesModule,
+    MailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {

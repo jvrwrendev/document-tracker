@@ -60,6 +60,7 @@ export class UsersService {
           role: dto.role ?? 'DOCUMENT_ENCODER',
           status: dto.status ?? 'ACTIVE',
           mustChangePassword: true,
+          emailVerifiedAt: new Date(),
           employeeId: dto.employeeId,
         },
         include: userWithEmployeeInclude,

@@ -13,6 +13,9 @@ interface ModalProps {
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   hideCloseButton?: boolean;
+  contentClassName?: string;
+  headerActions?: ReactNode;
+  bodyClassName?: string;
 }
 
 const sizeStyles = {
@@ -31,6 +34,9 @@ export function Modal({
   footer,
   size = 'md',
   hideCloseButton,
+  contentClassName,
+  headerActions,
+  bodyClassName,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -59,12 +65,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative bg-white rounded-lg border border-slate-200 w-full overflow-hidden flex flex-col max-h-[90vh]',
-          sizeStyles[size]
+          'relative bg-white rounded-[2px] border border-slate-200 w-full overflow-hidden flex flex-col max-h-[90vh]',
+          sizeStyles[size],
+          contentClassName,
         )}
       >
         {(title || !hideCloseButton) && (
-          <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-slate-200">
+          <div className="flex items-start justify-between gap-4 px-5 py-4">
             <div className="flex-1 min-w-0">
               {title && (
                 <h2 className="text-base font-semibold text-slate-900">{title}</h2>
@@ -74,18 +81,21 @@ export function Modal({
               )}
             </div>
             {!hideCloseButton && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-slate-400 hover:text-slate-700 shrink-0 -mr-1 -mt-1 p-1"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1 shrink-0 -mr-1 -mt-1">
+                {headerActions}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-slate-400 hover:text-slate-700 p-1"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             )}
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">{children}</div>
+        <div className={cn('flex-1 overflow-y-auto px-5 py-4 scrollbar-thin', bodyClassName)}>{children}</div>
         {footer && (
           <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
             {footer}

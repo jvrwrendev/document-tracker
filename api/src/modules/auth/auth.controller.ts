@@ -18,6 +18,12 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import {
+  RegisterResponseDto,
+  ResendVerificationResponseDto,
+} from './dto/email-verification-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { FirstLoginChangePasswordDto } from './dto/first-login-change-password.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
@@ -72,12 +78,29 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 900_000 } })
-  async register(
-    @Body() dto: RegisterDto,
-    @Req() req: Request,
+  async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
+    return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 900_000 } })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    return this.authService.register(dto, req, res);
+    return this.authService.verifyEmail(dto, res);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async resendVerification(
+    @Body() dto: ResendVerificationDto,
+  ): Promise<ResendVerificationResponseDto> {
+    return this.authService.resendVerification(dto);
   }
 
   @Public()
