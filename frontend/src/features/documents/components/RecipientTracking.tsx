@@ -18,7 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
-import { formatDate, cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import type {
   DocumentDetail,
   DocumentRecipient,
@@ -64,8 +64,7 @@ export function RecipientTracking({
     const total = recipients.length;
     const received = recipients.filter(r => r.status === 'received').length;
     const pending = total - received;
-    const progress = total > 0 ? Math.round((received / total) * 100) : 0;
-    return { total, received, pending, progress };
+    return { total, received, pending };
   }, [recipients]);
 
   const hasMore = recipients.length > 3;
@@ -112,16 +111,30 @@ export function RecipientTracking({
 
   return (
     <Card padded={false}>
-      <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-md bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center">
-          <Building2 className="w-4 h-4" />
+      <div className="px-5 py-4 border-b border-slate-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-md bg-brand-50 text-brand-700 border border-brand-200 flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900">Recipient Tracking</h2>
+            <p className="text-xs text-slate-500">
+              Per-office receiving status — each office acknowledges receipt independently.
+            </p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900">Recipient Tracking</h2>
-          <p className="text-xs text-slate-500">
-            Per-office receiving status — each office acknowledges receipt independently.
-          </p>
-        </div>
+        {summary.total > 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Received {summary.received}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+              <Clock className="w-3.5 h-3.5" />
+              Not Received {summary.pending}
+            </span>
+          </div>
+        )}
       </div>
 
       {summary.total === 0 ? (
@@ -134,40 +147,6 @@ export function RecipientTracking({
         </div>
       ) : (
         <div className="px-5 py-4 space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <SummaryTile
-              icon={<Building2 className="w-4 h-4" />}
-              label="Offices"
-              value={summary.total}
-              tone="indigo"
-            />
-            <SummaryTile
-              icon={<CheckCircle2 className="w-4 h-4" />}
-              label="Received"
-              value={summary.received}
-              tone="emerald"
-            />
-            <SummaryTile
-              icon={<Clock className="w-4 h-4" />}
-              label="Not Received"
-              value={summary.pending}
-              tone="amber"
-            />
-            <SummaryTile
-              icon={null}
-              label="Progress"
-              value={`${summary.progress}%`}
-              tone="slate"
-            />
-          </div>
-
-          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-              style={{ width: `${summary.progress}%` }}
-            />
-          </div>
-
           <Table
             data={visibleRecipients}
             keyExtractor={r => r.id}
@@ -357,34 +336,6 @@ function NoteCell({
             Edit
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SummaryTile({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  tone: 'indigo' | 'emerald' | 'amber' | 'slate';
-}) {
-  const tones: Record<typeof tone, string> = {
-    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    slate: 'bg-slate-50 text-slate-700 border-slate-200',
-  };
-  return (
-    <div className={cn('rounded-md border p-3 flex items-center gap-2.5', tones[tone])}>
-      {icon && <div className="shrink-0">{icon}</div>}
-      <div className="min-w-0">
-        <p className="text-lg font-semibold leading-tight">{value}</p>
-        <p className="text-[11px] text-slate-500 truncate">{label}</p>
       </div>
     </div>
   );
