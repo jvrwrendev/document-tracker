@@ -1,5 +1,4 @@
 export { UsersPage } from '@/features/system-admin/users/pages/UsersPage';
-export { AddUserPage } from '@/features/system-admin/users/pages/AddUserPage';
 export { UserDetailPage } from '@/features/system-admin/users/pages/UserDetailPage';
 
 export { useUsers } from '@/features/system-admin/users/hooks/useUsers';

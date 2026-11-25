@@ -23,6 +23,7 @@ import { useDocuments } from '@/features/documents/hooks/useDocuments';
 import { useRecentNotifications } from '@/features/notifications/hooks/useRecentNotifications';
 import { useToast } from '@/hooks/useToast';
 import { useOfficeLookup } from '@/hooks/useLookups';
+import { useDocumentRegistrationModal } from '@/features/documents/context/DocumentRegistrationModalContext';
 import {
   DOCUMENT_STATUS_LABELS,
   ROLE_LABELS,
@@ -48,6 +49,7 @@ export function DashboardPage() {
   const user = useCurrentUser();
   const { hasPermission } = useAuth();
   const toast = useToast();
+  const { openRegistration } = useDocumentRegistrationModal();
   const { items: documents, error } = useDocuments({ fetchAll: true });
   const officeById = useOfficeLookup();
   const {
@@ -135,11 +137,9 @@ export function DashboardPage() {
               </Button>
             </Link>
             {hasPermission('documents.create') && (
-              <Link to="/documents/register">
-                <Button variant="primary" leftIcon={<FilePlus className="w-4 h-4" />}>
-                  Register Document
-                </Button>
-              </Link>
+              <Button variant="primary" leftIcon={<FilePlus className="w-4 h-4" />} onClick={openRegistration}>
+                Register Document
+              </Button>
             )}
           </>
         }

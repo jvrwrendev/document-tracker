@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bell, LogOut, RefreshCw, User as UserIcon, Settings as SettingsIcon } from 'lucide-react';
+import { Search, Bell, LogOut, RefreshCw, User as UserIcon, Settings as SettingsIcon, X } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth, useCurrentUser } from '@/features/authentication/hooks/useAuth';
 import { Avatar } from '@/components/ui/Avatar';
@@ -21,7 +21,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { logout, switchRole, switchUser, allSwitchableUsers } = useAuth();
   const officeById = useOfficeLookup();
   const navigate = useNavigate();
-  const [, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const { items: notifications, markRead } = useRecentNotifications(notifOpen);
@@ -40,27 +41,70 @@ export function Header({ onMenuClick }: HeaderProps) {
     navigate('/dashboard');
   };
 
+  const handleSearchSubmit = (e?: FormEvent) => {
+    e?.preventDefault();
+    const term = searchTerm.trim();
+    setMobileSearchOpen(false);
+    if (term) {
+      navigate(`/documents?search=${encodeURIComponent(term)}`);
+    } else {
+      navigate('/documents');
+    }
+  };
+
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-slate-200 h-16 px-3 sm:px-6 flex items-center gap-2 sm:gap-3 w-full justify-between">
       <SidebarTrigger className="lg:hidden h-9 w-9 -ml-1 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" aria-label="Open menu" />
 
       {/* Search Bar Container */}
-      <div className="hidden md:flex flex-1 min-w-0 max-w-xl">
+      <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 min-w-0 max-w-xl">
         <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
             placeholder="Search documents, tracking numbers, senders…"
             className="w-full h-10 pl-9 pr-3 rounded-md border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-            onFocus={() => setSearchOpen(true)}
-            onBlur={() => setSearchOpen(false)}
           />
         </div>
-      </div>
+      </form>
+
+      {mobileSearchOpen && (
+        <form onSubmit={handleSearchSubmit} className="flex md:hidden flex-1 min-w-0 items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search documents…"
+              autoFocus
+              className="w-full h-10 pl-9 pr-3 rounded-md border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen(false)}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-slate-100 text-slate-600 shrink-0"
+            aria-label="Close search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </form>
+      )}
 
       {/* Far Right Action Icons (ml-auto pushes everything to the extreme right) */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
+      <div className={cn('items-center gap-1 sm:gap-2 shrink-0 ml-auto', mobileSearchOpen ? 'hidden md:flex' : 'flex')}>
 
+        <button
+          type="button"
+          onClick={() => setMobileSearchOpen(true)}
+          className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-slate-100 text-slate-600"
+          aria-label="Search"
+        >
+          <Search className="w-5 h-5" />
+        </button>
 
         <button
           type="button"

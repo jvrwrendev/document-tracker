@@ -38,6 +38,7 @@ import {
   ReceiptStateBadge,
 } from '@/features/documents/components/ReceiptProgress';
 import { RecipientOfficeList } from '@/features/documents/components/RecipientOfficeList';
+import { useDocumentRegistrationModal } from '@/features/documents/context/DocumentRegistrationModalContext';
 import {
   calculateReceiptProgress,
   type DocumentPriority,
@@ -52,6 +53,7 @@ export function OutboxPage() {
   const user = useCurrentUser();
   const { hasPermission } = useAuth();
   const toast = useToast();
+  const { openRegistration } = useDocumentRegistrationModal();
   const userById = useUserLookup();
   const { query: search, setQuery: setSearch, debounced } = useSearch({
     debounceMs: 250,
@@ -113,9 +115,9 @@ export function OutboxPage() {
         actions={
           <div className="flex items-center gap-2">
             {hasPermission('documents.create') && (
-              <Link to="/documents/register">
-                <Button leftIcon={<Send className="h-4 w-4" />}>Register Document</Button>
-              </Link>
+              <Button leftIcon={<Send className="h-4 w-4" />} onClick={openRegistration}>
+                Register Document
+              </Button>
             )}
             <Link to="/documents">
               <Button variant="outline">All Documents</Button>
@@ -215,9 +217,9 @@ export function OutboxPage() {
                 hasFilters ? (
                   <Button variant="outline" onClick={resetFilters}>Reset filters</Button>
                 ) : hasPermission('documents.create') ? (
-                  <Link to="/documents/register">
-                    <Button leftIcon={<Send className="h-4 w-4" />}>Register Document</Button>
-                  </Link>
+                  <Button leftIcon={<Send className="h-4 w-4" />} onClick={openRegistration}>
+                    Register Document
+                  </Button>
                 ) : null
               }
             />

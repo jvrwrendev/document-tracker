@@ -1,3 +1,4 @@
+export { AddUserModal } from '@/features/system-admin/users/components/AddUserModal';
 export { AddUserTipsCard } from '@/features/system-admin/users/components/AddUserTipsCard';
 export { PasswordInputField } from '@/features/system-admin/users/components/PasswordInputField';
 export { RoleInfoCard } from '@/features/system-admin/users/components/RoleInfoCard';

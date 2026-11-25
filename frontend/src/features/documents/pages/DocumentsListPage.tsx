@@ -30,6 +30,7 @@ import { useOfficeLookup, useUserLookup } from '@/hooks/useLookups';
 import { useSearch } from '@/hooks/useSearch';
 import { ReceiptProgress, ReceiptStateBadge } from '@/features/documents/components/ReceiptProgress';
 import { RecipientOfficeList } from '@/features/documents/components/RecipientOfficeList';
+import { useDocumentRegistrationModal } from '@/features/documents/context/DocumentRegistrationModalContext';
 import {
   ALL_DOCUMENT_TYPES,
   ALL_CLASSIFICATIONS,
@@ -64,6 +65,7 @@ const DEFAULT_FILTERS = {
 export function DocumentsListPage() {
   const { hasPermission } = useAuth();
   const toast = useToast();
+  const { openRegistration } = useDocumentRegistrationModal();
   const [searchParams, setSearchParams] = useSearchParams();
   const { offices: officeDirectory } = useOfficeDirectory();
   const officeById = useOfficeLookup();
@@ -74,7 +76,10 @@ export function DocumentsListPage() {
     ? requestedStatus
     : DEFAULT_FILTERS.status;
 
-  const { query: search, setQuery: setSearch, debounced } = useSearch({ debounceMs: 250 });
+  const { query: search, setQuery: setSearch, debounced } = useSearch({
+    initialQuery: searchParams.get('search') ?? '',
+    debounceMs: 250,
+  });
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [typeFilter, setTypeFilter] = useState(DEFAULT_FILTERS.type);
   const [classificationFilter, setClassificationFilter] = useState(DEFAULT_FILTERS.classification);
@@ -86,6 +91,25 @@ export function DocumentsListPage() {
   const [sortKey, setSortKey] = useState<DocumentSortBy>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const filterInitialized = useRef(false);
+  const lastUrlSearch = useRef(searchParams.get('search') ?? '');
+
+  useEffect(() => {
+    const urlSearch = searchParams.get('search') ?? '';
+    if (urlSearch !== lastUrlSearch.current) {
+      lastUrlSearch.current = urlSearch;
+      setSearch(urlSearch);
+    }
+  }, [searchParams, setSearch]);
+
+  useEffect(() => {
+    const current = searchParams.get('search') ?? '';
+    if (debounced === current) return;
+    lastUrlSearch.current = debounced;
+    const next = new URLSearchParams(searchParams);
+    if (debounced) next.set('search', debounced);
+    else next.delete('search');
+    setSearchParams(next, { replace: true });
+  }, [debounced, searchParams, setSearchParams]);
 
   const buildFilters = (
     next: {
@@ -305,9 +329,9 @@ export function DocumentsListPage() {
         actions={
           <div className="flex items-center gap-2">
             {hasPermission('documents.create') ? (
-              <Link to="/documents/register">
-                <Button leftIcon={<PlusCircle className="w-4 h-4" />}>Register Document</Button>
-              </Link>
+              <Button leftIcon={<PlusCircle className="w-4 h-4" />} onClick={openRegistration}>
+                Register Document
+              </Button>
             ) : null}
           </div>
         }

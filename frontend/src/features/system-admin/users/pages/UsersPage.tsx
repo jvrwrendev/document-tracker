@@ -30,6 +30,7 @@ import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { useUsers } from '@/features/system-admin/users/hooks/useUsers';
 import { useOffices } from '@/features/system-admin/offices/hooks/useOffices';
 import { ApiError } from '@/features/system-admin/users/services/user.service';
+import { AddUserModal } from '@/features/system-admin/users/components/AddUserModal';
 import { UserStatCard } from '@/features/system-admin/users/components/UserStatCard';
 import { UserStatusBadge } from '@/features/system-admin/users/components/UserStatusBadge';
 import { ROLE_LABELS, ROLE_SHORT_LABELS } from '@/constants';
@@ -120,6 +121,7 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [officeFilter, setOfficeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [addUserOpen, setAddUserOpen] = useState(false);
 
   useEffect(() => {
     if (error) toast.error('Failed to load users', error);
@@ -219,11 +221,9 @@ export function UsersPage() {
         description="Manage system users, roles, and office assignments"
         actions={
           hasPermission('users.create') ? (
-            <Link to="/users/new">
-              <Button leftIcon={<PlusCircle className="w-4 h-4" />}>
-                Add User
-              </Button>
-            </Link>
+            <Button leftIcon={<PlusCircle className="w-4 h-4" />} onClick={() => setAddUserOpen(true)}>
+              Add User
+            </Button>
           ) : null
         }
       />
@@ -311,7 +311,7 @@ export function UsersPage() {
                 description="Get started by creating the first user account."
                 action={
                   hasPermission('users.create') ? (
-                    <Button onClick={() => navigate('/users/new')}>Add User</Button>
+                    <Button onClick={() => setAddUserOpen(true)}>Add User</Button>
                   ) : null
                 }
               />
@@ -499,6 +499,12 @@ export function UsersPage() {
           </div>
         </Card>
       ) : null}
+
+      <AddUserModal
+        open={addUserOpen}
+        onClose={() => setAddUserOpen(false)}
+        onCreated={() => void refetch()}
+      />
     </div>
   );
 }

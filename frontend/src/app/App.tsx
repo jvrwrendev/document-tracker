@@ -14,13 +14,11 @@ import { DashboardPage } from '@/features/documents/pages/DashboardPage';
 import { DocumentsListPage } from '@/features/documents/pages/DocumentsListPage';
 import { DocumentDetailPage } from '@/features/documents/pages/DocumentDetailPage';
 import { AttachmentViewerPage } from '@/features/documents/pages/AttachmentViewerPage';
-import { DocumentRegistrationPage } from '@/features/documents/pages/DocumentRegistrationPage';
 import { InboxPage } from '@/features/documents/pages/InboxPage';
 import { OutboxPage } from '@/features/documents/pages/OutboxPage';
 import { ArchivePage } from '@/features/documents/pages/ArchivePage';
 import { TrackingPage } from '@/features/documents/pages/TrackingPage';
 import { UsersPage } from '@/features/system-admin/users/pages/UsersPage';
-import { AddUserPage } from '@/features/system-admin/users/pages/AddUserPage';
 import { EditUserPage } from '@/features/system-admin/users/pages/EditUserPage';
 import { UserDetailPage } from '@/features/system-admin/users/pages/UserDetailPage';
 import { DocumentTypesPage } from '@/features/system-admin/document-type/pages/DocumentTypesPage';
@@ -71,14 +69,6 @@ future={{
                 <Route path="/dashboard" element={<ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute>} />
                 <Route path="/change-password" element={<ChangePasswordPage />} />
                 <Route path="/documents" element={<ProtectedRoute permission="documents.view"><DocumentsListPage /></ProtectedRoute>} />
-                <Route
-                  path="/documents/register"
-                  element={
-                    <ProtectedRoute permission="documents.create">
-                      <DocumentRegistrationPage />
-                    </ProtectedRoute>
-                  }
-                />
                 <Route path="/documents/:id" element={<ProtectedRoute permission="documents.view"><DocumentDetailPage /></ProtectedRoute>} />
 
                 <Route
@@ -128,14 +118,6 @@ future={{
                   element={
                     <ProtectedRoute permission="users.edit">
                       <EditUserPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/users/new"
-                  element={
-                    <ProtectedRoute permission="users.create">
-                      <AddUserPage />
                     </ProtectedRoute>
                   }
                 />
