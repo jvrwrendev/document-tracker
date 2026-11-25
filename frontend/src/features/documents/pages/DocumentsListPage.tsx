@@ -14,7 +14,6 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Table } from '@/components/ui/Table';
-import { PriorityBadge, ClassificationBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
@@ -30,6 +29,7 @@ import { useOfficeLookup, useUserLookup } from '@/hooks/useLookups';
 import { useSearch } from '@/hooks/useSearch';
 import { ReceiptProgress, ReceiptStateBadge } from '@/features/documents/components/ReceiptProgress';
 import { RecipientOfficeList } from '@/features/documents/components/RecipientOfficeList';
+import { DocumentTitleCell, DocumentTrackingLink } from '@/features/documents/components/DocumentTableCells';
 import { useDocumentRegistrationModal } from '@/features/documents/context/DocumentRegistrationModalContext';
 import {
   ALL_DOCUMENT_TYPES,
@@ -502,36 +502,13 @@ export function DocumentsListPage() {
               header: 'Tracking #',
               width: '140px',
               sortable: true,
-              cell: d => (
-                <Link to={`/documents/${d.id}`} className="font-mono text-[12px] font-semibold text-brand-700 hover:underline">
-                  {d.trackingNumber}
-                </Link>
-              ),
+              cell: d => <DocumentTrackingLink id={d.id} trackingNumber={d.trackingNumber} />,
             },
             {
               key: 'title',
               header: 'Document',
               sortable: true,
-              cell: d => (
-                <div className="min-w-0">
-                  <Link to={`/documents/${d.id}`} className="block truncate text-[13px] font-medium text-slate-900 hover:text-brand-700">
-                    {d.title}
-                  </Link>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <span className="text-[11px] text-slate-500">{DOCUMENT_TYPE_LABELS[d.type]}</span>
-                    <span className="text-slate-300">·</span>
-                    <ClassificationBadge classification={d.classification} />
-                    <PriorityBadge priority={d.priority} />
-                  </div>
-                  {d.tags.length > 0 && (
-                    <div className="mt-1 flex items-center gap-1.5">
-                      {d.tags.slice(0, 3).map(t => (
-                        <span key={t} className="text-[10px] text-slate-400 font-mono">#{t}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ),
+              cell: d => <DocumentTitleCell document={d} />,
             },
             {
               key: 'originatingOffice',

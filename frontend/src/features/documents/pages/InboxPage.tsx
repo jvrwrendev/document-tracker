@@ -11,7 +11,6 @@ import {
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Table } from '@/components/ui/Table';
-import { PriorityBadge } from '@/components/ui/StatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -25,7 +24,7 @@ import { useInboxDocuments } from '@/features/documents/hooks/useOfficeDocuments
 import { useDocumentReceive } from '@/features/documents/hooks/useDocumentReceive';
 import { useOfficeLookup, useUserLookup } from '@/hooks/useLookups';
 import { useToast } from '@/hooks/useToast';
-import { DOCUMENT_TYPE_LABELS } from '@/constants';
+import { DocumentTitleCell, DocumentTrackingLink } from '@/features/documents/components/DocumentTableCells';
 import { Pagination } from '@/components/ui/Pagination';
 import { useSearch } from '@/hooks/useSearch';
 import { formatDate, formatRelative, cn } from '@/lib/utils';
@@ -177,27 +176,13 @@ export function InboxPage() {
             {
               key: 'trackingNumber',
               header: 'Tracking #',
-              width: '150px',
-              cell: document => (
-                <Link to={`/documents/${document.id}`} className="font-mono font-semibold text-brand-700 hover:underline">
-                  {document.trackingNumber}
-                </Link>
-              ),
+              width: '140px',
+              cell: document => <DocumentTrackingLink id={document.id} trackingNumber={document.trackingNumber} />,
             },
             {
               key: 'title',
               header: 'Document',
-              cell: document => (
-                <div>
-                  <Link to={`/documents/${document.id}`} className="font-medium text-slate-900 hover:text-brand-700">
-                    {document.title}
-                  </Link>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <Badge variant="slate" size="sm">{DOCUMENT_TYPE_LABELS[document.type]}</Badge>
-                    <PriorityBadge priority={document.priority} />
-                  </div>
-                </div>
-              ),
+              cell: document => <DocumentTitleCell document={document} />,
             },
             {
               key: 'from',
