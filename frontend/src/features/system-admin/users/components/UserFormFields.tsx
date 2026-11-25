@@ -20,6 +20,7 @@ export interface AddUserFormState {
   middleName: string;
   lastName: string;
   email: string;
+  employeeEmail?: string;
   phone: string;
   position: string;
   officeId: string;
@@ -66,6 +67,11 @@ export interface UserFormFieldsProps {
   onGeneratePassword?: () => void;
   disabled?: boolean;
   showPasswordField?: boolean;
+  readOnlyEmployeeFields?: boolean;
+  passwordRequired?: boolean;
+  passwordHint?: string;
+  credentialsDescription?: string;
+  allowUnassignedOffice?: boolean;
 }
 
 export function UserFormFields({
@@ -81,6 +87,11 @@ export function UserFormFields({
   onGeneratePassword,
   disabled,
   showPasswordField = true,
+  readOnlyEmployeeFields = false,
+  passwordRequired = true,
+  passwordHint,
+  credentialsDescription,
+  allowUnassignedOffice = false,
 }: UserFormFieldsProps) {
   const usernameValue = usernameTouched ? form.username : (form.username || suggestedUsername);
 
@@ -89,7 +100,7 @@ export function UserFormFields({
       <Card>
         <CardHeader
           title="Personal Information"
-          description="Basic identity details for the user"
+          description={readOnlyEmployeeFields ? 'Employee identity details (read-only)' : 'Basic identity details for the user'}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Input
@@ -102,7 +113,7 @@ export function UserFormFields({
             placeholder="Juan"
             error={touched.firstName ? errors.firstName : undefined}
             leftIcon={<UserIcon className="w-4 h-4" />}
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
           />
           <Input
             label="Middle Name"
@@ -111,7 +122,7 @@ export function UserFormFields({
             onChange={e => onChange({ ...form, middleName: e.target.value })}
             placeholder="Santos"
             hint="Optional"
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
           />
           <Input
             label="Last Name"
@@ -122,20 +133,20 @@ export function UserFormFields({
             onBlur={() => onTouched('lastName')}
             placeholder="Dela Cruz"
             error={touched.lastName ? errors.lastName : undefined}
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
           />
           <Input
             label="Email"
             name="email"
-            required
+            required={!readOnlyEmployeeFields}
             type="email"
-            value={form.email}
+            value={readOnlyEmployeeFields ? (form.employeeEmail ?? form.email) : form.email}
             onChange={e => onChange({ ...form, email: e.target.value })}
             onBlur={() => onTouched('email')}
             placeholder="juan@example.com"
             error={touched.email ? errors.email : undefined}
             leftIcon={<Mail className="w-4 h-4" />}
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
           />
           <Input
             label="Phone"
@@ -146,7 +157,7 @@ export function UserFormFields({
             placeholder="09171234567"
             error={touched.phone ? errors.phone : undefined}
             leftIcon={<Phone className="w-4 h-4" />}
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
           />
           <Combobox
             label="Position"
@@ -157,7 +168,7 @@ export function UserFormFields({
             options={POSITION_SELECT_OPTIONS}
             placeholder="Select a position"
             error={touched.position ? errors.position : undefined}
-            disabled={disabled}
+            disabled={disabled || readOnlyEmployeeFields}
             searchable={false}
           />
         </div>
@@ -172,10 +183,14 @@ export function UserFormFields({
           <Select
             label="Office"
             name="officeId"
-            required
+            required={!allowUnassignedOffice}
             value={form.officeId}
             onChange={e => onChange({ ...form, officeId: e.target.value })}
-            options={offices.map(o => ({ value: o.id, label: `${o.code} — ${o.name}` }))}
+            options={[
+              ...(allowUnassignedOffice ? [{ value: '', label: 'Unassigned' }] : []),
+              ...offices.map(o => ({ value: o.id, label: `${o.code} — ${o.name}` })),
+            ]}
+            hint={allowUnassignedOffice ? 'Unassigned users cannot perform office-scoped actions.' : undefined}
             disabled={disabled}
           />
           <Select
@@ -205,12 +220,28 @@ export function UserFormFields({
         <CardHeader
           title="Account Credentials"
           description={
-            showPasswordField
+            credentialsDescription ??
+            (showPasswordField
               ? 'Login credentials for the new user'
-              : 'A secure temporary password will be generated automatically when the user is created.'
+              : 'A secure temporary password will be generated automatically when the user is created.')
           }
         />
         <div className={`grid grid-cols-1 ${showPasswordField ? 'md:grid-cols-2' : ''} gap-4`}>
+          {readOnlyEmployeeFields && (
+            <Input
+              label="Account Email"
+              name="accountEmail"
+              required
+              type="email"
+              value={form.email}
+              onChange={e => onChange({ ...form, email: e.target.value })}
+              onBlur={() => onTouched('email')}
+              placeholder="juan@example.com"
+              error={touched.email ? errors.email : undefined}
+              leftIcon={<Mail className="w-4 h-4" />}
+              disabled={disabled}
+            />
+          )}
           <Input
             label="Username"
             name="username"
@@ -232,11 +263,11 @@ export function UserFormFields({
               onChange={value => onChange({ ...form, password: value })}
               onBlur={() => onTouched('password')}
               error={touched.password ? errors.password : undefined}
-              required
+              required={passwordRequired}
               hint={
                 touched.password && errors.password
                   ? undefined
-                  : 'User will be required to change this password on first login.'
+                  : (passwordHint ?? 'User will be required to change this password on first login.')
               }
               showGenerate={!!onGeneratePassword}
               onGenerate={onGeneratePassword}

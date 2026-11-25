@@ -19,7 +19,6 @@ import { OutboxPage } from '@/features/documents/pages/OutboxPage';
 import { ArchivePage } from '@/features/documents/pages/ArchivePage';
 import { TrackingPage } from '@/features/documents/pages/TrackingPage';
 import { UsersPage } from '@/features/system-admin/users/pages/UsersPage';
-import { EditUserPage } from '@/features/system-admin/users/pages/EditUserPage';
 import { UserDetailPage } from '@/features/system-admin/users/pages/UserDetailPage';
 import { DocumentTypesPage } from '@/features/system-admin/document-type/pages/DocumentTypesPage';
 import { DocumentTypeDetailPage } from '@/features/system-admin/document-type/pages/DocumentTypeDetailPage';
@@ -110,14 +109,6 @@ future={{
                   element={
                     <ProtectedRoute permission="users.view">
                       <UserDetailPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/users/:id/edit"
-                  element={
-                    <ProtectedRoute permission="users.edit">
-                      <EditUserPage />
                     </ProtectedRoute>
                   }
                 />

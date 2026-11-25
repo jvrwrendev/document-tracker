@@ -35,6 +35,7 @@ import {
 } from '@/features/system-admin/users/types/user';
 import { ROLE_DESCRIPTIONS } from '@/constants';
 import { formatDate } from '@/lib/utils';
+import { useUserFormModal } from '@/features/system-admin/users/context/UserFormModalContext';
 
 function fullNameOf(user: UserAccount): string {
   const e = user.employee;
@@ -58,6 +59,7 @@ export function UserDetailPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { hasPermission } = useAuth();
+  const { openUserModal } = useUserFormModal();
 
   const { fetchById, remove, resetPassword, resendCredentials, deleting, resettingPassword, resendingCredentials } =
     useUsers();
@@ -265,7 +267,7 @@ export function UserDetailPage() {
               <Button
                 variant="outline"
                 leftIcon={<Edit2 className="w-4 h-4" />}
-                onClick={() => navigate(`/users/${user.id}/edit`)}
+                onClick={() => openUserModal({ mode: 'edit', userId: user.id, onSaved: () => { if (id) void load(id); } })}
                 disabled={deleting}
               >
                 Edit User

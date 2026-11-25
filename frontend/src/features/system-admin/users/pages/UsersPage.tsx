@@ -30,7 +30,7 @@ import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { useUsers } from '@/features/system-admin/users/hooks/useUsers';
 import { useOffices } from '@/features/system-admin/offices/hooks/useOffices';
 import { ApiError } from '@/features/system-admin/users/services/user.service';
-import { AddUserModal } from '@/features/system-admin/users/components/AddUserModal';
+import { useUserFormModal } from '@/features/system-admin/users/context/UserFormModalContext';
 import { UserStatCard } from '@/features/system-admin/users/components/UserStatCard';
 import { UserStatusBadge } from '@/features/system-admin/users/components/UserStatusBadge';
 import { ROLE_LABELS, ROLE_SHORT_LABELS } from '@/constants';
@@ -121,7 +121,7 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [officeFilter, setOfficeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [addUserOpen, setAddUserOpen] = useState(false);
+  const { openUserModal } = useUserFormModal();
 
   useEffect(() => {
     if (error) toast.error('Failed to load users', error);
@@ -221,7 +221,7 @@ export function UsersPage() {
         description="Manage system users, roles, and office assignments"
         actions={
           hasPermission('users.create') ? (
-            <Button leftIcon={<PlusCircle className="w-4 h-4" />} onClick={() => setAddUserOpen(true)}>
+            <Button leftIcon={<PlusCircle className="w-4 h-4" />} onClick={() => openUserModal({ mode: 'create', onSaved: () => void refetch() })}>
               Add User
             </Button>
           ) : null
@@ -311,7 +311,7 @@ export function UsersPage() {
                 description="Get started by creating the first user account."
                 action={
                   hasPermission('users.create') ? (
-                    <Button onClick={() => setAddUserOpen(true)}>Add User</Button>
+                    <Button onClick={() => openUserModal({ mode: 'create', onSaved: () => void refetch() })}>Add User</Button>
                   ) : null
                 }
               />
@@ -444,7 +444,7 @@ export function UsersPage() {
                       id: 'edit',
                       label: 'Edit User',
                       icon: <Edit2 className="w-4 h-4" />,
-                      onClick: () => navigate(`/users/${u.id}/edit`),
+                      onClick: () => openUserModal({ mode: 'edit', userId: u.id, onSaved: () => void refetch() }),
                       disabled: !hasPermission('users.edit'),
                     },
                     { id: 'd-danger', label: '', divider: true },
@@ -500,11 +500,6 @@ export function UsersPage() {
         </Card>
       ) : null}
 
-      <AddUserModal
-        open={addUserOpen}
-        onClose={() => setAddUserOpen(false)}
-        onCreated={() => void refetch()}
-      />
     </div>
   );
 }
