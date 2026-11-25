@@ -4,6 +4,7 @@ import { ToastProvider } from '@/hooks/useToast';
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
+import { TicketingSystemProvider } from '@/ticketing/hooks/useSystem';
 
 import { LoginPage } from '@/features/authentication/pages/LoginPage';
 import { VerifyEmailPage } from '@/features/authentication/pages/VerifyEmailPage';
@@ -29,6 +30,10 @@ import { AuditLogsPage } from '@/features/system-admin/audit-logs/pages/AuditLog
 import { SettingsPage } from '@/features/profile/pages/SettingsPage';
 import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage';
 import { RECIPIENT_TRACKING_ROLES } from '@/constants';
+import { TicketingDashboardPage } from '@/ticketing/pages/TicketingDashboardPage';
+import { ServiceRequestsPage } from '@/ticketing/pages/ServiceRequestsPage';
+import { BorrowSlipsPage } from '@/ticketing/pages/BorrowSlipsPage';
+import { TicketingAccountPage } from '@/ticketing/pages/TicketingAccountPage';
 
 export function App() {
   return (
@@ -38,10 +43,11 @@ future={{
         v7_startTransition: true,
       }}
     >
-      <AuthProvider>
-        <ToastProvider>
-          <ConfirmDialogProvider>
-            <Routes>
+      <TicketingSystemProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <ConfirmDialogProvider>
+              <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
 
@@ -162,13 +168,32 @@ future={{
                 />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+
+                <Route path="/ticketing" element={<Navigate to="/ticketing/dashboard" replace />} />
+                <Route
+                  path="/ticketing/dashboard"
+                  element={<ProtectedRoute><TicketingDashboardPage /></ProtectedRoute>}
+                />
+                <Route
+                  path="/ticketing/service-requests"
+                  element={<ProtectedRoute><ServiceRequestsPage /></ProtectedRoute>}
+                />
+                <Route
+                  path="/ticketing/borrow-slips"
+                  element={<ProtectedRoute><BorrowSlipsPage /></ProtectedRoute>}
+                />
+                <Route
+                  path="/ticketing/account"
+                  element={<ProtectedRoute><TicketingAccountPage /></ProtectedRoute>}
+                />
               </Route>
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </ConfirmDialogProvider>
-        </ToastProvider>
-      </AuthProvider>
+              </Routes>
+            </ConfirmDialogProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </TicketingSystemProvider>
     </BrowserRouter>
   );
 }

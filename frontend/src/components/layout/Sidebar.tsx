@@ -1,9 +1,16 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { FileText, Ticket } from 'lucide-react';
 import { navigation, iconMap } from './navigation';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { useUnreadNotifications } from '@/features/notifications/hooks/useUnreadNotifications';
 import { ROLE_LABELS } from '@/constants';
 import { Logo } from '@/components/ui/Logo';
+import { useSystem } from '@/ticketing/hooks/useSystem';
+import {
+  ticketingIconMap,
+  ticketingNavigation,
+  ticketingSections,
+} from '@/ticketing/layouts/navigation';
 import {
   Sidebar,
   SidebarContent,
@@ -26,12 +33,11 @@ const sections: Array<{ key: 'main' | 'workspace' | 'personal' | 'admin'; label:
   { key: 'admin', label: 'Administration' },
 ];
 
-const sectionOrder = sections.map(s => s.key);
-
 export function LayoutSidebar() {
   const { user, hasPermission } = useAuth();
   const { unreadCount } = useUnreadNotifications(true);
   const location = useLocation();
+  const { system, switchSystem } = useSystem();
 
   if (!user) return null;
 
@@ -47,6 +53,12 @@ export function LayoutSidebar() {
     return true;
   });
 
+  const isTicketing = system === 'ticketing';
+  const visibleSections = isTicketing ? ticketingSections : sections;
+  const visibleNav = isTicketing ? ticketingNavigation : filteredNav;
+  const switchLabel = isTicketing ? 'Go to Document Tracker' : 'Go to Ticketing System';
+  const SwitchIcon = isTicketing ? FileText : Ticket;
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -57,7 +69,9 @@ export function LayoutSidebar() {
                 <Logo size="sm" alt="" />
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate text-sm font-semibold text-sidebar-foreground">CityDocs DMS</span>
-                  <span className="truncate text-[11px] text-muted-foreground">Document Management</span>
+                  <span className="truncate text-[11px] text-muted-foreground">
+                    {isTicketing ? 'Ticketing System' : 'Document Management'}
+                  </span>
                 </div>
               </div>
             </SidebarMenuButton>
@@ -82,10 +96,25 @@ export function LayoutSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {sections.map(section => {
-          const items = filteredNav
-            .filter(i => i.section === section.key)
-            .sort((a, b) => sectionOrder.indexOf(a.section as never) - sectionOrder.indexOf(b.section as never));
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => switchSystem(isTicketing ? 'documents' : 'ticketing')}
+                  tooltip={switchLabel}
+                  className="py-2 text-brand-700 hover:bg-brand-50 hover:text-brand-800"
+                >
+                  <SwitchIcon />
+                  <span className="group-data-[collapsible=icon]:hidden">{switchLabel}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {visibleSections.map(section => {
+          const items = visibleNav.filter(i => i.section === section.key);
           if (items.length === 0) return null;
           return (
             <SidebarGroup key={section.key}>
@@ -93,8 +122,10 @@ export function LayoutSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {items.map(item => {
-                    const Icon = iconMap[item.icon as keyof typeof iconMap];
-                    const badge = item.id === 'notifications' ? unreadCount : undefined;
+                    const Icon = isTicketing
+                      ? ticketingIconMap[item.icon as keyof typeof ticketingIconMap]
+                      : iconMap[item.icon as keyof typeof iconMap];
+                    const badge = !isTicketing && item.id === 'notifications' ? unreadCount : undefined;
                     return (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton
@@ -125,7 +156,7 @@ export function LayoutSidebar() {
 
       <SidebarFooter>
         <div className="px-2 pb-1 text-[11px] leading-relaxed text-muted-foreground">
-          <p>DMS v1.0.0 &middot; Build 2026.08</p>
+          <p>{isTicketing ? 'Ticketing v1.0.0' : 'DMS v1.0.0'} &middot; Build 2026.08</p>
           <p className="mt-0.5">For government use only</p>
         </div>
       </SidebarFooter>
