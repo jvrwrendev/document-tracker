@@ -185,6 +185,7 @@ export class DocumentsService {
     if (!authenticatedOfficeId) {
       throw new BadRequestException('Authenticated user has no assigned office');
     }
+    const settings = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } }).catch(() => null);
     const trackingNumber = await this.generateTrackingNumber();
 
     const useManualOrigin = !dto.originatingOfficeId;
@@ -274,7 +275,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
             description: dto.description,
             typeId: dto.typeId,
             classification: dto.classification,
-            priority: dto.priority ?? 'normal',
+            priority: dto.priority ?? settings?.defaultDocumentPriority ?? 'normal',
             source: dto.source,
             senderName: dto.senderName,
             tags: dto.tags ?? [],
@@ -1343,8 +1344,12 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
   }
 
   private async generateTrackingNumber(): Promise<string> {
+    const settings = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } }).catch(() => null);
     const year = new Date().getFullYear();
-    const prefix = `DMS-${year}-`;
+    const yearStr = settings?.trackingYearFormat === 'YY' ? String(year).slice(-2) : String(year);
+    const rawPrefix = (settings?.trackingPrefix || 'DMS').trim() || 'DMS';
+    const padding = Math.min(8, Math.max(3, Number(settings?.trackingNumberPadding ?? 4)));
+    const prefix = `${rawPrefix}-${yearStr}-`;
     const last = await this.prisma.document.findFirst({
       where: { trackingNumber: { startsWith: prefix }, deletedAt: null },
       orderBy: { trackingNumber: 'desc' },
@@ -1356,7 +1361,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       const n = parseInt(tail, 10);
       if (!Number.isNaN(n)) nextSeq = n + 1;
     }
-    return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+    return `${prefix}${nextSeq.toString().padStart(padding, '0')}`;
   }
 
   private buildDocumentSearchWhere(search?: string): Prisma.DocumentWhereInput {

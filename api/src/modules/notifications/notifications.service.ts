@@ -56,7 +56,27 @@ export class NotificationsService {
     this.events$.next(event);
   }
 
-  async create(dto: CreateNotificationDto): Promise<NotificationRow> {
+  private async isNotificationAllowed(userId: string, type: NotificationType): Promise<boolean> {
+    try {
+      const pref = await (this.prisma as any).userNotificationPreference.findUnique({ where: { userId } });
+      if (!pref) return true;
+      const map: Record<string, boolean> = {
+        incoming_document: pref.incomingDocuments,
+        receipt_acknowledged: pref.receiptAcknowledged,
+        recipient_note: pref.recipientNotes,
+        overdue: pref.overdueDocuments,
+        archived: pref.archivedDocuments,
+      };
+      if (type in map) return !!map[type as string];
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
+  async create(dto: CreateNotificationDto): Promise<NotificationRow | null> {
+    const allowed = await this.isNotificationAllowed(dto.userId, dto.type);
+    if (!allowed) return null as any;
     const notif = await this.prisma.notification.create({
       data: {
         userId: dto.userId,

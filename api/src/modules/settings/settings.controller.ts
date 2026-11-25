@@ -72,21 +72,18 @@ export class SettingsController {
   }
 
   @Get('backups')
-  @Permissions('backup.view')
   @Roles(ROLES.SYSTEM_ADMIN)
   listBackups() {
     return this.settingsService.listBackups();
   }
 
   @Post('backups')
-  @Permissions('backup.create')
   @Roles(ROLES.SYSTEM_ADMIN)
   createBackup(@Body() body: { notes?: string }, @CurrentUser() user: AuthenticatedUser) {
     return this.settingsService.createBackup(user.id, body?.notes);
   }
 
   @Get('backups/:id/download')
-  @Permissions('backup.view')
   @Roles(ROLES.SYSTEM_ADMIN)
   async downloadBackup(@Param('id', new ParseUUIDPipe()) id: string, @Res() res: Response) {
     const record = await this.settingsService.getBackupFile(id);
@@ -96,7 +93,6 @@ export class SettingsController {
   }
 
   @Post('backups/:id/restore')
-  @Permissions('backup.restore')
   @Roles(ROLES.SYSTEM_ADMIN)
   @HttpCode(HttpStatus.OK)
   restoreBackup(

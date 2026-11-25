@@ -41,7 +41,7 @@ export class DocumentAttachmentsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 25 * 1024 * 1024 },
+      limits: { fileSize: 100 * 1024 * 1024 },
     }),
   )
   @Audit('attachment.upload', 'attachments', 'DocumentAttachment')

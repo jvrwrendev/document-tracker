@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface HealthItemProps {
   label: string;
-  status: 'healthy' | 'warning' | 'error';
+  status: 'healthy' | 'warning' | 'error' | 'unavailable';
   value: string;
   icon?: ReactNode;
 }
@@ -12,6 +12,7 @@ const STATUS_STYLES = {
   healthy: { dot: 'bg-emerald-500', glow: 'bg-emerald-500/10 text-emerald-700', label: 'Operational' },
   warning: { dot: 'bg-amber-500', glow: 'bg-amber-500/10 text-amber-700', label: 'Attention' },
   error: { dot: 'bg-rose-500', glow: 'bg-rose-500/10 text-rose-700', label: 'Degraded' },
+  unavailable: { dot: 'bg-slate-400', glow: 'bg-slate-100 text-slate-600', label: 'Unavailable' },
 } as const;
 
 export function HealthItem({ label, status, value, icon }: HealthItemProps) {

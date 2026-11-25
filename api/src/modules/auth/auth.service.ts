@@ -129,6 +129,20 @@ export class AuthService {
 
   // ---------- Public API ----------
 
+  private async getSessionTtlMs(): Promise<number> {
+    const s = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } }).catch(() => null);
+    const minutes = Math.max(5, Number(s?.sessionTimeoutMinutes ?? Math.floor(this.refreshTtlMs / 60000)));
+    return minutes * 60 * 1000;
+  }
+
+  private async getLoginPolicy() {
+    const s = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } }).catch(() => null);
+    return {
+      limit: Math.max(3, Number(s?.loginAttemptLimit ?? 5)),
+      lockoutMinutes: Math.max(1, Number(s?.loginLockoutMinutes ?? 15)),
+    };
+  }
+
   async login(dto: LoginDto, req: Request, res: Response): Promise<AuthResponseDto> {
     const identifier = dto.emailOrUsername.trim().toLowerCase();
 
@@ -139,9 +153,22 @@ export class AuthService {
       include: { employee: { select: employeeSelect } },
     });
 
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      throw new UnauthorizedException('Account is temporarily locked. Try again later.');
+    }
+
     const ok = await constantTimeVerify(dto.password, user?.passwordHash ?? null);
 
     if (!user || !ok) {
+      if (user) {
+        const policy = await this.getLoginPolicy();
+        const attempts = (user.failedLoginAttempts ?? 0) + 1;
+        const lockedUntil = attempts >= policy.limit ? new Date(Date.now() + policy.lockoutMinutes * 60000) : null;
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: lockedUntil ? 0 : attempts, lockedUntil },
+        }).catch(() => undefined);
+      }
       this.logFailedAttempt(req, identifier);
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -157,12 +184,19 @@ export class AuthService {
       });
     }
 
-    const { sessionId, refreshRaw } = await this.issueSession(user.id);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+    }).catch(() => undefined);
+
+    const sessionTtlMs = await this.getSessionTtlMs();
+    const { sessionId, refreshRaw } = await this.issueSession(user.id, sessionTtlMs);
     const accessToken = this.signAccessToken(user.id, user.role, sessionId);
     const csrfRaw = randomToken(32);
-    this.setAuthCookies(res, accessToken, refreshRaw, this.refreshTtlMs, csrfRaw);
+    this.setAuthCookies(res, accessToken, refreshRaw, sessionTtlMs, csrfRaw);
 
-    return { user: await this.toUserDto(user) };
+    const freshUser = await this.prisma.user.findUnique({ where: { id: user.id }, include: { employee: { select: employeeSelect } } });
+    return { user: await this.toUserDto(freshUser ?? user) };
   }
 
   async forgotPassword(
@@ -524,17 +558,18 @@ export class AuthService {
     // Reissue without rotating the session ID or refresh token. Rotation would
     // invalidate access tokens held by other tabs and in-flight requests, causing
     // spurious "Session revoked" 401s while the user is still signed in.
+    const sessionTtlMs = await this.getSessionTtlMs();
     await this.prisma.authSession.update({
       where: { id: session.id },
       data: {
-        expiresAt: new Date(Date.now() + this.refreshTtlMs),
+        expiresAt: new Date(Date.now() + sessionTtlMs),
         lastUsedAt: new Date(),
       },
     });
 
     const accessToken = this.signAccessToken(user.id, user.role, session.id);
     const csrfRaw = randomToken(32);
-    this.setAuthCookies(res, accessToken, raw, this.refreshTtlMs, csrfRaw);
+    this.setAuthCookies(res, accessToken, raw, sessionTtlMs, csrfRaw);
 
     return { user: await this.toUserDto(user) };
   }
@@ -752,10 +787,10 @@ export class AuthService {
     return { code };
   }
 
-  private async issueSession(userId: string): Promise<{ sessionId: string; refreshRaw: string }> {
+  private async issueSession(userId: string, ttlMs = this.refreshTtlMs): Promise<{ sessionId: string; refreshRaw: string }> {
     const refreshRaw = randomToken(64);
     const refreshHash = sha256Hex(refreshRaw);
-    const expiresAt = new Date(Date.now() + this.refreshTtlMs);
+    const expiresAt = new Date(Date.now() + ttlMs);
     const session = await this.prisma.authSession.create({
       data: { userId, tokenHash: refreshHash, expiresAt },
       select: { id: true },

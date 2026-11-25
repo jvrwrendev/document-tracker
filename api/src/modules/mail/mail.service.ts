@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
 import { MailConfig } from '../../config/mail.config';
@@ -34,7 +35,10 @@ export class MailService {
   private transport: Transporter | null = null;
   private verificationTransport: Transporter | null = null;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     this.config = configService.get<MailConfig>('mail') ?? ({} as MailConfig);
     this.nodemail =
       configService.get<NodemailConfig>('nodemail') ?? ({} as NodemailConfig);
@@ -86,7 +90,39 @@ export class MailService {
     return this.verificationTransport;
   }
 
+  private async getDbSettings(): Promise<any | null> {
+    try {
+      return await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } });
+    } catch {
+      return null;
+    }
+  }
+
   async send(input: SendInput): Promise<void> {
+    const db = await this.getDbSettings();
+    if (db && (db.smtpHost || db.smtpFromEmail || db.smtpUser)) {
+      if (db.emailNotificationsEnabled === false) {
+        this.logger.warn(`Email to ${input.to} skipped: email notifications disabled in settings.`);
+        return;
+      }
+      const host = db.smtpHost || this.config.host;
+      const fromAddress = db.smtpFromEmail || db.smtpUser || this.config.fromAddress;
+      if (host && fromAddress) {
+        const transport = createTransport({
+          host,
+          port: db.smtpPort ?? this.config.port ?? 587,
+          secure: db.smtpSecure ?? this.config.secure ?? false,
+          requireTLS: !(db.smtpSecure ?? this.config.secure ?? false),
+          auth: (db.smtpUser || this.config.user) ? { user: db.smtpUser || this.config.user, pass: db.smtpPass || this.config.pass } : undefined,
+        });
+        await transport.sendMail({
+          from: { name: db.smtpFromName || this.config.fromName || 'CityDocs DMS', address: fromAddress },
+          to: input.to, subject: input.subject, text: input.text, html: input.html,
+        });
+        return;
+      }
+    }
+
     const transport = this.getTransport();
     if (!transport) {
       const missing = [this.config.host ? null : 'MAIL_HOST', this.config.fromAddress ? null : 'MAIL_FROM_ADDRESS/MAIL_USER']

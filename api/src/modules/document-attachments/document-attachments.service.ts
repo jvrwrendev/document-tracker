@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { existsSync } from 'fs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LocalStorageService } from './local-storage.service';
@@ -37,6 +37,19 @@ export class DocumentAttachmentsService {
   ): Promise<unknown> {
     const doc = await this.prisma.document.findFirst({ where: { id: documentId, deletedAt: null } });
     if (!doc) throw new NotFoundException('Document not found');
+
+    const settings = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } }).catch(() => null);
+    const maxMb = Math.max(1, Number(settings?.maxAttachmentSizeMb ?? 25));
+    const maxBytes = maxMb * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new BadRequestException(`File exceeds maximum attachment size of ${maxMb} MB.`);
+    }
+    const allowed = (settings?.allowedAttachmentTypes?.length ? settings.allowedAttachmentTypes : ['pdf','doc','docx','xls','xlsx','png','jpg','jpeg'])
+      .map((t: string) => String(t).toLowerCase().replace(/^\./, ''));
+    const ext = file.originalname.split('.').pop()?.toLowerCase() ?? '';
+    if (allowed.length > 0 && !allowed.includes(ext)) {
+      throw new BadRequestException(`File type .${ext || 'unknown'} is not allowed. Allowed: ${allowed.join(', ')}`);
+    }
 
     const storageKey = this.storage.buildStorageKey(documentId, file.originalname);
     await this.storage.save(file.buffer, storageKey);
