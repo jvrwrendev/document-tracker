@@ -1,0 +1,7 @@
+         tbl         | count 
+---------------------+-------
+ DocumentReview      |     0
+ DocumentRoutingStep |     0
+ DocumentRelease     |     0
+(3 rows)
+

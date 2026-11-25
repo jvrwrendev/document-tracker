@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Tabs } from '@/components/ui/Tabs';
+import { Select } from '@/components/ui/Select';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { authApi } from '@/features/authentication/api/authApi';
@@ -151,10 +151,10 @@ export function RolesPermissionsPage() {
                 <div className="flex items-center gap-2">
                   {editing ? (
                     <>
-                      <Button variant="outline" size="sm" leftIcon={<X className="h-3.5 w-3.5" />} onClick={handleCancel} disabled={saving}>
+                      <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" leftIcon={<X className="h-3.5 w-3.5" />} onClick={handleCancel} disabled={saving}>
                         Cancel
                       </Button>
-                      <Button size="sm" leftIcon={<Save className="h-3.5 w-3.5" />} onClick={handleSave} disabled={saving}>
+                      <Button size="sm" className="shrink-0 whitespace-nowrap" leftIcon={<Save className="h-3.5 w-3.5" />} onClick={handleSave} disabled={saving}>
                         {saving ? 'Saving…' : 'Save Changes'}
                       </Button>
                     </>
@@ -162,6 +162,7 @@ export function RolesPermissionsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="shrink-0 whitespace-nowrap"
                       leftIcon={canEdit ? <Edit2 className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                       disabled={!canEdit}
                       onClick={handleEdit}
@@ -186,22 +187,20 @@ export function RolesPermissionsPage() {
                   </div>
                 )}
 
-                <Tabs
-                  items={groups.map(group => {
-                    const active = editing ? draft : grantedPermissions;
-                    const grantedCount = group.permissions.filter(p => active.includes(p.key)).length;
-                    return {
-                      id: group.module,
-                      label: group.module,
-                      count: grantedCount,
-                    };
-                  })}
-                  value={activeModule}
-                  onChange={setActiveModule}
-                  variant="underline"
-                  size="sm"
-                  className="mb-4 overflow-x-auto"
-                />
+                <div className="mb-4 max-w-xs">
+                  <Select
+                    value={activeModule}
+                    onChange={e => setActiveModule(e.target.value)}
+                    options={groups.map(group => {
+                      const active = editing ? draft : grantedPermissions;
+                      const grantedCount = group.permissions.filter(p => active.includes(p.key)).length;
+                      return {
+                        value: group.module,
+                        label: `${group.module} (${grantedCount})`,
+                      };
+                    })}
+                  />
+                </div>
 
                 {selectedGroup && (
                   <PermissionGroup

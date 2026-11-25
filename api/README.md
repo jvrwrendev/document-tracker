@@ -62,7 +62,7 @@ The API is served on `http://localhost:3000`.
 ```
 auth, users, roles, offices, employees,
 documents, document-types, document-attachments,
-document-routing, document-review, document-release,
+document-tracking, document-archive,
 document-tracking, document-archive,
 notifications, audit-logs
 ```

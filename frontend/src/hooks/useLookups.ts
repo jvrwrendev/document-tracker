@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useOfficeDirectory } from '@/features/system-admin/offices/hooks/useOffices';
-import { useRoutingOptions } from '@/features/documents/hooks/useRoutingOptions';
+import { useUserOptions } from '@/features/documents/hooks/useUserOptions';
 import { AVATAR_COLORS } from '@/constants';
 
 export interface LookupUser {
@@ -27,7 +27,7 @@ export function useOfficeLookup() {
 }
 
 export function useUserLookup() {
-  const { users } = useRoutingOptions();
+  const { users } = useUserOptions();
   const map = useMemo(
     () => new Map(users.map(u => [u.id, { ...u, avatarColor: colorForId(u.id) } as LookupUser])),
     [users],

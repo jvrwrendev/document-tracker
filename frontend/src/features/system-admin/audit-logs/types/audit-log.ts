@@ -46,5 +46,5 @@ export interface AuditLogStats {
   total: number;
   today: number;
   uniqueActors: number;
-  approvals: number;
+  registrations: number;
 }

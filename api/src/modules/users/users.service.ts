@@ -125,7 +125,7 @@ export class UsersService {
     return { items, total, page, pageSize };
   }
 
-  async findRoutingOptions(): Promise<Array<{
+  async findUserOptions(): Promise<Array<{
     id: string;
     fullName: string;
     email: string | null;

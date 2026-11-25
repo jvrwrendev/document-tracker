@@ -107,8 +107,8 @@ export function AuditLogsPage() {
           accent="indigo"
         />
         <AuditStatCard
-          label="Approvals"
-          value={stats.approvals}
+          label="Registrations"
+          value={stats.registrations}
           icon={<ShieldCheck className="h-5 w-5" />}
           accent="emerald"
         />

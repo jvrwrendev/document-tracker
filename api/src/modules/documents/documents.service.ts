@@ -44,7 +44,7 @@ export type DocumentListItem = Prisma.DocumentGetPayload<{
   include: {
     type: true;
     recipients: { include: { office: { select: { id: true; name: true; code: true } } } };
-    _count: { select: { reviews: true; archives: true; attachments: true } };
+    _count: { select: { archives: true, attachments: true } };
   };
 }>;
 
@@ -52,7 +52,6 @@ export type DocumentDetail = Prisma.DocumentGetPayload<{
   include: {
     type: true;
     attachments: true;
-    reviews: true;
     archives: true;
     history: true;
     recipients: { include: { office: { select: { id: true; name: true; code: true } } } };
@@ -435,7 +434,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
         include: {
           type: true,
           recipients: { include: { office: { select: { id: true, name: true, code: true } } } },
-          _count: { select: { reviews: true, archives: true, attachments: true } },
+          _count: { select: { archives: true, attachments: true } },
         },
         orderBy: { [sortBy ?? 'createdAt']: order },
         skip: (page - 1) * pageSize,
@@ -525,7 +524,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
               },
               _count: {
                 select: {
-                  reviews: true,
                   archives: true,
                   attachments: true,
                 },
@@ -620,7 +618,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
               },
               _count: {
                 select: {
-                  reviews: true,
                   archives: true,
                   attachments: true,
                 },
@@ -678,7 +675,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       include: {
         type: true,
         attachments: true,
-        reviews: { orderBy: { createdAt: 'desc' } },
         archives: { orderBy: { archivedAt: 'desc' } },
         history: { orderBy: { occurredAt: 'asc' } },
         recipients: { include: { office: { select: { id: true, name: true, code: true } } } },
@@ -854,8 +850,8 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
 
   /**
    * Soft-deletes every active document. Restricted to SYSTEM_ADMIN by the
-   * controller. Related records (recipients, routing, reviews, releases,
-   * trackings, archives, history, attachments) are left intact â€” they remain
+   * controller. Related records (recipients, trackings, archives, history,
+   * attachments) are left intact - they remain
    * attached to the hidden document, so no orphaned records are created.
    */
   async removeAll(actorId: string): Promise<{ deletedCount: number }> {

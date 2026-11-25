@@ -135,30 +135,6 @@ export interface DocumentAttachment {
   uploadedAt: string;
 }
 
-export interface RoutingStep {
-  id: string;
-  documentId: string;
-  fromOfficeId: string;
-  fromUserId?: string;
-  toOfficeId: string;
-  toUserId?: string;
-  instructions: string;
-  status: 'pending' | 'received' | 'in_progress' | 'completed' | 'returned';
-  receivedAt?: string;
-  completedAt?: string;
-  sequence: number;
-  remarks?: string;
-}
-
-export interface ReviewAction {
-  id: string;
-  documentId: string;
-  reviewerId: string;
-  action: 'recommended' | 'approved' | 'rejected' | 'returned' | 'commented';
-  remarks: string;
-  createdAt: string;
-}
-
 export interface AuditLog {
   id: string;
   actorId: string;

@@ -33,7 +33,7 @@ const FEATURES = [
   {
     icon: BellRing,
     title: 'Live notifications',
-    description: 'Stay updated on routing, review, and release.',
+    description: 'Stay updated on document receipts, notes, and status changes.',
   },
 ];
 

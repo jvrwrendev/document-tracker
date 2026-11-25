@@ -10,11 +10,6 @@ interface AuditRowProps {
 }
 
 const ACTION_TONE: Record<string, 'emerald' | 'rose' | 'orange' | 'indigo' | 'blue' | 'teal' | 'brand' | 'slate'> = {
-  APPROVE: 'emerald',
-  REJECT: 'rose',
-  RETURN: 'orange',
-  REVIEW: 'indigo',
-  RECOMMEND: 'indigo',
   RECEIVE: 'blue',
   LOGIN: 'teal',
   CREATE: 'brand',

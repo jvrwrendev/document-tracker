@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
 import { userService } from '@/features/system-admin/users/services/user.service';
-import type { RoutingUserOption } from '@/features/system-admin/users/types/user';
+import type { UserOption } from '@/features/system-admin/users/types/user';
 
-export function useRoutingOptions() {
-  const [users, setUsers] = useState<RoutingUserOption[]>([]);
+export function useUserOptions() {
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    userService.routingOptions()
+    userService.userOptions()
       .then(items => {
         if (active) setUsers(items);
       })
       .catch(err => {
-        if (active) setError(err instanceof Error ? err.message : 'Failed to load routing users.');
+        if (active) setError(err instanceof Error ? err.message : 'Failed to load users.');
       })
       .finally(() => {
         if (active) setLoading(false);

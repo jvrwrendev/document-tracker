@@ -155,8 +155,6 @@ export class AuditInterceptor implements NestInterceptor {
 
   private guessTargetType(url: string): string {
     if (url.startsWith('/documents')) return 'Document';
-    if (url.startsWith('/document-routing')) return 'DocumentRoutingStep';
-    if (url.startsWith('/document-review')) return 'DocumentReview';
     if (url.startsWith('/document-attachments')) return 'DocumentAttachment';
     if (url.startsWith('/users')) return 'User';
     if (url.startsWith('/offices')) return 'Office';
@@ -167,7 +165,6 @@ export class AuditInterceptor implements NestInterceptor {
   private describe(meta: AuditMetadata, request: Request, result: unknown): string {
 const body = (request.body ?? {}) as Record<string, unknown>;
     const fromStatus = typeof body.fromStatus === 'string' ? body.fromStatus : undefined;
-    const actionKind = typeof body.action === 'string' ? body.action : undefined;
 
     switch (meta.action) {
       case 'document.register':
@@ -183,14 +180,6 @@ const body = (request.body ?? {}) as Record<string, unknown>;
             : undefined;
         return `All documents deleted (${count ?? 'unknown'} affected)`;
       }
-      case 'document.assign-holder':
-        return `Holder assigned (${String(body.holderId ?? body.holder ?? '') || 'unset'})`;
-      case 'review.create':
-        return `Review: ${actionKind ?? 'commented'}`;
-      case 'routing.create-plan':
-        return `Routing plan created`;
-      case 'routing.advance':
-        return `Routing step advanced to ${String(body.status ?? '?')}`;
       case 'attachment.upload':
         return `Attachment uploaded: ${String((request as { file?: { originalname?: string } }).file?.originalname ?? '?')}`;
       case 'attachment.delete':

@@ -46,7 +46,7 @@ export interface UserAccount {
   updatedAt: string;
 }
 
-export interface RoutingUserOption {
+export interface UserOption {
   id: string;
   fullName: string;
   email: string | null;

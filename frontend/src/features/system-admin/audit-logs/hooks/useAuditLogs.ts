@@ -96,10 +96,10 @@ export function useAuditLogs(initial?: AuditLogListFilters): UseAuditLogsReturn 
 export function computeStats(items: AuditLogItem[]): AuditLogStats {
   const today = new Date().toDateString();
   const unique = new Set<string>();
-  let approvals = 0;
+  let registrations = 0;
   for (const item of items) {
     if (item.actor?.id) unique.add(item.actor.id);
-    if (item.action === 'APPROVE') approvals += 1;
+    if (item.action === 'document.register') registrations += 1;
     if (new Date(item.createdAt).toDateString() === today) {
       // counted below via .filter
     }
@@ -109,6 +109,6 @@ export function computeStats(items: AuditLogItem[]): AuditLogStats {
     total: items.length,
     today: todayCount,
     uniqueActors: unique.size,
-    approvals,
+    registrations,
   };
 }

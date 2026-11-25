@@ -54,7 +54,6 @@ function normalizeDocument<T extends DocumentListItem | DocumentDetail>(document
       ? {
           attachmentCount: document._count.attachments,
           counts: {
-            reviews: document._count.reviews,
             archives: document._count.archives,
           },
         }

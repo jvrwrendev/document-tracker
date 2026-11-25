@@ -48,44 +48,6 @@ export interface DocumentAttachment {
   updatedAt: string;
 }
 
-export interface DocumentRoutingStep {
-  id: string;
-  documentId: string;
-  sequence: number;
-  fromOfficeId: string;
-  fromUserId: string | null;
-  toOfficeId: string;
-  toUserId: string | null;
-  instructions: string | null;
-  status: 'pending' | 'received' | 'in_progress' | 'completed' | 'returned';
-  receivedAt: string | null;
-  completedAt: string | null;
-  remarks: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DocumentReview {
-  id: string;
-  documentId: string;
-  reviewerId: string;
-  action: 'recommended' | 'approved' | 'rejected' | 'returned' | 'commented';
-  remarks: string | null;
-  createdAt: string;
-}
-
-export interface DocumentRelease {
-  id: string;
-  documentId: string;
-  releasedById: string;
-  releasedToId: string | null;
-  method: 'pickup' | 'email' | 'courier' | 'hand_delivery';
-  recipientName: string | null;
-  notes: string | null;
-  releasedAt: string;
-  createdAt: string;
-}
-
 export interface DocumentArchive {
   id: string;
   documentId: string;
@@ -175,12 +137,10 @@ export interface DocumentListItem {
   attachmentCount: number;
   attachments?: DocumentAttachment[];
   _count?: {
-    reviews: number;
     archives: number;
     attachments: number;
   };
   counts: {
-    reviews: number;
     archives: number;
   };
   createdAt: string;
@@ -189,7 +149,6 @@ export interface DocumentListItem {
 
 export interface DocumentDetail extends Omit<DocumentListItem, 'attachmentCount'> {
   attachments: DocumentAttachment[];
-  reviews: DocumentReview[];
   archives: DocumentArchive[];
   encodedBy: DocumentPerson | null;
   receivedBy: DocumentPerson | null;

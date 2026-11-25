@@ -15,4 +15,4 @@ export { useDocumentHistory } from '@/features/documents/hooks/useDocumentHistor
 export type { UseDocumentHistoryReturn } from '@/features/documents/hooks/useDocumentHistory';
 export { useDocumentTimeline } from '@/features/documents/hooks/useDocumentTimeline';
 export type { UseDocumentTimelineReturn } from '@/features/documents/hooks/useDocumentTimeline';
-export { useRoutingOptions } from '@/features/documents/hooks/useRoutingOptions';
+export { useUserOptions } from '@/features/documents/hooks/useUserOptions';

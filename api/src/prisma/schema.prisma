@@ -72,29 +72,6 @@ enum DocumentSource {
   external
 }
 
-enum RoutingStepStatus {
-  pending
-  received
-  in_progress
-  completed
-  returned
-}
-
-enum ReviewActionKind {
-  recommended
-  approved
-  rejected
-  returned
-  commented
-}
-
-enum ReleaseMethod {
-  pickup
-  email
-  courier
-  hand_delivery
-}
-
 enum NotificationType {
   document
   system
@@ -294,9 +271,6 @@ model Document {
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
   attachments            DocumentAttachment[]
-  routingSteps           DocumentRoutingStep[]
-  reviews                DocumentReview[]
-  releases               DocumentRelease[]
   trackings              DocumentTracking[]
   archives               DocumentArchive[]
   history                DocumentHistory[]
@@ -323,55 +297,6 @@ model DocumentAttachment {
   uploadedAt   DateTime         @default(now())
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-
-  @@index([documentId])
-}
-
-model DocumentRoutingStep {
-  id           String            @id @default(uuid())
-  documentId   String
-  document     Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  sequence     Int
-  fromOfficeId String
-  fromUserId   String?
-  toOfficeId   String
-  toUserId     String?
-  instructions String?
-  status       RoutingStepStatus @default(pending)
-  receivedAt   DateTime?
-  completedAt  DateTime?
-  remarks      String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  @@index([documentId])
-  @@index([status])
-}
-
-model DocumentReview {
-  id         String           @id @default(uuid())
-  documentId String
-  document   Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  reviewerId String
-  action     ReviewActionKind
-  remarks    String?
-  createdAt  DateTime         @default(now())
-
-  @@index([documentId])
-  @@index([reviewerId])
-}
-
-model DocumentRelease {
-  id            String        @id @default(uuid())
-  documentId    String
-  document      Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  releasedById  String
-  releasedToId  String?
-  method        ReleaseMethod
-  recipientName String?
-  notes         String?
-  releasedAt    DateTime      @default(now())
-  createdAt     DateTime      @default(now())
 
   @@index([documentId])
 }
@@ -415,7 +340,7 @@ model DocumentHistory {
 }
 
 // Receiving / Destination offices for a document.
-// Per-office receiving status tracked here (independent of DocumentRoutingStep).
+// Per-office receiving status tracked here independently.
 model DocumentRecipient {
   id           String          @id @default(uuid())
   documentId   String

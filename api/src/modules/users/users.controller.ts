@@ -48,9 +48,9 @@ export class UsersController {
   }
 
   @SkipThrottle()
-  @Get('routing-options')
-  routingOptions() {
-    return this.usersService.findRoutingOptions();
+  @Get('options')
+  userOptions() {
+    return this.usersService.findUserOptions();
   }
 
   @SkipThrottle()

@@ -12,7 +12,7 @@ import type {
   UserAccount,
   UserListFilters,
   UserListResponse,
-  RoutingUserOption,
+  UserOption,
 } from '@/features/system-admin/users/types/user';
 
 export class ApiError extends Error {
@@ -115,8 +115,8 @@ export const userService = {
     return request<UserListResponse>(`/users${buildQuery(filters)}`);
   },
 
-  routingOptions(): Promise<RoutingUserOption[]> {
-    return request<RoutingUserOption[]>('/users/routing-options');
+  userOptions(): Promise<UserOption[]> {
+    return request<UserOption[]>('/users/options');
   },
 
   getById(id: string): Promise<UserAccount> {
