@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Building2, Mail, Phone, Briefcase, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Mail, Phone, Briefcase, User as UserIcon } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { authApi } from '@/features/authentication/api/authApi';
 import { useUsers } from '@/features/system-admin/users/hooks/useUsers';
+import { useOffices } from '@/features/system-admin/offices/hooks/useOffices';
 import { ApiError } from '@/features/system-admin/users/services/user.service';
 import {
   USER_ROLE_API,
@@ -63,6 +64,7 @@ export function EditUserPage() {
   const toast = useToast();
   const { hasPermission, user: currentUser, updateCurrentUser } = useAuth();
   const { fetchById, update, updating, actionError, clearActionError } = useUsers();
+  const { offices } = useOffices();
 
   const [user, setUser] = useState<UserAccount | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,7 @@ export function EditUserPage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRoleApi>('DOCUMENT_ENCODER');
   const [status, setStatus] = useState<UserStatusApi>('ACTIVE');
+  const [officeId, setOfficeId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -88,6 +91,7 @@ export function EditUserPage() {
         setEmail(u.email ?? '');
         setRole(u.role);
         setStatus(u.status);
+        setOfficeId(u.employee?.officeId ?? '');
       })
       .catch(err => {
         if (cancelled) return;
@@ -106,7 +110,9 @@ export function EditUserPage() {
 
   const fullName = user ? fullNameOf(user) : '';
   const employee = user?.employee ?? null;
-  const office = employee?.office ?? null;
+  const office = officeId
+    ? offices.find(o => o.id === officeId) ?? employee?.office ?? null
+    : null;
   const firstName = employee?.firstName ?? '';
   const lastName = employee?.lastName ?? '';
 
@@ -147,6 +153,7 @@ export function EditUserPage() {
         email: email.trim().toLowerCase(),
         role: role as UserRoleApi,
         status: status as UserStatusApi,
+        officeId: officeId || null,
         password: password || undefined,
       });
       if (isSelf) {
@@ -258,7 +265,7 @@ export function EditUserPage() {
 
       {isSelf && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          You are editing your own account. Changing your role or status may affect your current access.
+          You are editing your own account. Changing your role, status, or office assignment may affect your current access.
         </div>
       )}
 
@@ -292,12 +299,17 @@ export function EditUserPage() {
                 leftIcon={<Briefcase className="w-4 h-4" />}
                 disabled
               />
-              <Input
+              <Select
                 label="Office"
-                name="office"
-                value={office ? `${office.code} — ${office.name}` : ''}
-                leftIcon={<Building2 className="w-4 h-4" />}
-                disabled
+                name="officeId"
+                value={officeId}
+                onChange={e => setOfficeId(e.target.value)}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...offices.map(o => ({ value: o.id, label: `${o.code} — ${o.name}` })),
+                ]}
+                hint="Unassigned users cannot perform office-scoped actions."
+                disabled={updating}
               />
             </div>
           </Card>
@@ -386,7 +398,7 @@ export function EditUserPage() {
           <RoleInfoCard role={role} office={office} />
           <AddUserTipsCard
             tips={[
-              'Employee details are managed separately and cannot be changed here.',
+              'Personal employee details are managed separately; office assignment can be changed here.',
               'Leave the password blank to keep the current one.',
               'Changing a role updates what this user can access.',
             ]}

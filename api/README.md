@@ -54,7 +54,7 @@ The API is served on `http://localhost:3000`.
 
 1. `POST /auth/login` → sets `dms_at` (10 m), `dms_rt` (7 d, Path=/auth), `dms_csrf` cookies.
 2. Subsequent requests: browser sends `dms_at` automatically; protected routes also require `X-XSRF-TOKEN` header matching `dms_csrf` cookie value.
-3. `POST /auth/refresh` rotates the refresh session (old session revoked, new one created).
+3. `POST /auth/refresh` reissues the access token and extends the current session without rotating its ID or refresh token, so other tabs and in-flight requests remain valid.
 4. `POST /auth/logout` revokes the current refresh session and clears cookies.
 
 ## Modules

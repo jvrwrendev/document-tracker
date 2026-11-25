@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -168,13 +173,21 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserWithEmployee> {
-    const { password, ...rest } = dto;
+    const { password, officeId, ...rest } = dto;
     const data: Prisma.UserUpdateInput = {};
     if (rest.username !== undefined) data.username = rest.username;
     if (rest.email !== undefined) data.email = rest.email;
     if (rest.role !== undefined) data.role = rest.role;
     if (rest.status !== undefined) data.status = rest.status;
     if (rest.employeeId !== undefined) data.employee = { connect: { id: rest.employeeId } };
+    if (officeId !== undefined) {
+      if (rest.employeeId !== undefined) {
+        throw new BadRequestException(
+          'employeeId and officeId cannot be updated in the same request.',
+        );
+      }
+      data.employee = { update: { officeId } };
+    }
     if (password) {
       data.passwordHash = await hashPassword(password);
     }
@@ -185,6 +198,16 @@ export class UsersService {
         include: userWithEmployeeInclude,
       });
     } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          throw new NotFoundException('User not found');
+        }
+        if (err.code === 'P2003') {
+          throw new BadRequestException(
+            'The selected office or employee does not exist.',
+          );
+        }
+      }
       throwOnUniqueConflict(err, {
         email: 'A user account with this email address already exists.',
         username: 'This username is already taken.',

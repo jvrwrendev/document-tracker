@@ -23,6 +23,10 @@ import type {
   DocumentDetail,
   DocumentRecipient,
 } from '@/features/documents/types/document';
+import {
+  recipientOfficeCode,
+  recipientOfficeName,
+} from '@/features/documents/types/document';
 import type { LookupUser } from '@/hooks/useLookups';
 
 interface RecipientTrackingProps {
@@ -68,8 +72,9 @@ export function RecipientTracking({
   const visibleRecipients = showAll ? recipients : recipients.slice(0, 3);
 
   const canManageNote = (recipient: DocumentRecipient): boolean =>
-    canManageNotes ||
-    (recipient.status === 'received' && currentOfficeId === recipient.officeId);
+    !!recipient.officeId &&
+    (canManageNotes ||
+      (recipient.status === 'received' && currentOfficeId === recipient.officeId));
 
   const openNoteModal = (recipient: DocumentRecipient) => {
     setNoteTarget(recipient);
@@ -83,7 +88,7 @@ export function RecipientTracking({
   };
 
   const handleSaveNote = async () => {
-    if (!noteTarget || noteDraft.trim().length === 0) return;
+    if (!noteTarget || !noteTarget.officeId || noteDraft.trim().length === 0) return;
     setNoteBusy(true);
     const success = await onSetNote(noteTarget.officeId, noteDraft);
     setNoteBusy(false);
@@ -91,10 +96,10 @@ export function RecipientTracking({
   };
 
   const handleDeleteNote = async () => {
-    if (!noteTarget) return;
+    if (!noteTarget || !noteTarget.officeId) return;
     const ok = await confirm({
       title: 'Delete Office Note',
-      description: `Remove the note for ${noteTarget.office.name}? This action cannot be undone.`,
+      description: `Remove the note for ${recipientOfficeName(noteTarget)}? This action cannot be undone.`,
       confirmText: 'Delete',
       variant: 'danger',
     });
@@ -172,8 +177,10 @@ export function RecipientTracking({
                 header: 'Destination Office',
                 cell: r => (
                   <div>
-                    <p className="font-medium text-slate-900">{r.office.name}</p>
-                    <p className="text-[11px] text-slate-400 font-mono">{r.office.code}</p>
+                    <p className="font-medium text-slate-900">{recipientOfficeName(r)}</p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      {recipientOfficeCode(r) || 'Office deleted'}
+                    </p>
                   </div>
                 ),
               },
@@ -265,7 +272,7 @@ export function RecipientTracking({
         title={noteTarget?.note ? 'Edit Office Note' : 'Add Office Note'}
         description={
           noteTarget
-            ? `${noteTarget.office.code} — ${noteTarget.office.name} · ${doc.trackingNumber}`
+            ? `${recipientOfficeCode(noteTarget)} — ${recipientOfficeName(noteTarget)} · ${doc.trackingNumber}`
             : undefined
         }
         footer={

@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Office } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { throwOnUniqueConflict } from '../../common/utils/prisma-unique.util';
@@ -92,7 +96,36 @@ export class OfficesService {
     }
   }
 
-  remove(id: string): Promise<Office> {
-    return this.prisma.office.delete({ where: { id } });
+  async remove(id: string): Promise<Office> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const office = await tx.office.findUnique({ where: { id } });
+        if (!office) {
+          throw new NotFoundException('Office not found');
+        }
+
+        // Preserve the destination identity before the FK is set to null.
+        await tx.documentRecipient.updateMany({
+          where: { officeId: id },
+          data: { officeName: office.name, officeCode: office.code },
+        });
+
+        return tx.office.delete({ where: { id } });
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          throw new NotFoundException('Office not found');
+        }
+        if (err.code === 'P2003') {
+          throw new ConflictException({
+            message:
+              'This office cannot be deleted because it is still referenced by other records.',
+            code: 'OFFICE_DELETE_CONFLICT',
+          });
+        }
+      }
+      throw err;
+    }
   }
 }

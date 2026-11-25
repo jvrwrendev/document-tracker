@@ -169,7 +169,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               label: (
                 <div className="flex flex-col">
                   <span className="text-xs text-slate-500">Office</span>
-                  <span className="font-semibold text-slate-900">{user.officeName ?? '—'}</span>
+                  <span className="font-semibold text-slate-900">{user.officeName ?? 'Unassigned'}</span>
                 </div>
               ),
               onClick: () => {},

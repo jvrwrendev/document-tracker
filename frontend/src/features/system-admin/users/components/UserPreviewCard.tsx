@@ -51,7 +51,7 @@ export function UserPreviewCard({
       <dl className="mt-4 space-y-2 text-xs">
         <PreviewRow label="Username" value={username || '—'} mono />
         <PreviewRow label="Position" value={position || '—'} />
-        <PreviewRow label="Office" value={office?.name ?? '—'} />
+        <PreviewRow label="Office" value={office?.name ?? 'Unassigned'} />
         <div className="flex items-center justify-between">
           <dt className="text-slate-500">Status</dt>
           <dd>

@@ -519,16 +519,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid session');
     }
 
-    // Rotate: revoke old, issue new
+    // Reissue without rotating the session ID or refresh token. Rotation would
+    // invalidate access tokens held by other tabs and in-flight requests, causing
+    // spurious "Session revoked" 401s while the user is still signed in.
     await this.prisma.authSession.update({
       where: { id: session.id },
-      data: { revokedAt: new Date() },
+      data: {
+        expiresAt: new Date(Date.now() + this.refreshTtlMs),
+        lastUsedAt: new Date(),
+      },
     });
 
-    const { sessionId: newSessionId, refreshRaw: newRefreshRaw } = await this.issueSession(user.id);
-    const accessToken = this.signAccessToken(user.id, user.role, newSessionId);
+    const accessToken = this.signAccessToken(user.id, user.role, session.id);
     const csrfRaw = randomToken(32);
-    this.setAuthCookies(res, accessToken, newRefreshRaw, this.refreshTtlMs, csrfRaw);
+    this.setAuthCookies(res, accessToken, raw, this.refreshTtlMs, csrfRaw);
 
     return { user: await this.toUserDto(user) };
   }

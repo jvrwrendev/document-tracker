@@ -37,4 +37,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsUUID()
   employeeId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  officeId?: string | null;
 }

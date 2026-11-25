@@ -221,8 +221,8 @@ model Employee {
   position   String
   email      String   @unique
   phone      String?
-  officeId   String
-  office     Office   @relation(fields: [officeId], references: [id])
+  officeId   String?
+  office     Office?  @relation(fields: [officeId], references: [id], onDelete: SetNull)
   user       User?
   isActive   Boolean  @default(true)
   hiredAt    DateTime @default(now())
@@ -422,8 +422,10 @@ model DocumentRecipient {
   id           String          @id @default(uuid())
   documentId   String
   document     Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  officeId     String
-  office       Office          @relation(fields: [officeId], references: [id])
+  officeId     String?
+  office       Office?         @relation(fields: [officeId], references: [id], onDelete: SetNull)
+  officeName   String?
+  officeCode   String?
   status       RecipientStatus @default(pending)
   receivedById String?
   receivedAt   DateTime?

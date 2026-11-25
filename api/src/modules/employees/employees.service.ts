@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -100,15 +104,32 @@ export class EmployeesService {
     if (dto.position !== undefined) data.position = dto.position;
     if (dto.email !== undefined) data.email = dto.email;
     if (dto.phone !== undefined) data.phone = dto.phone;
-    if (dto.officeId !== undefined) data.office = { connect: { id: dto.officeId } };
+    if (dto.officeId !== undefined) {
+      data.office =
+        dto.officeId === null
+          ? { disconnect: true }
+          : { connect: { id: dto.officeId } };
+    }
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.hiredAt) data.hiredAt = new Date(dto.hiredAt);
 
-    return this.prisma.employee.update({
-      where: { id },
-      data,
-      include: employeeInclude,
-    });
+    try {
+      return await this.prisma.employee.update({
+        where: { id },
+        data,
+        include: employeeInclude,
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          throw new NotFoundException('Employee not found');
+        }
+        if (err.code === 'P2003') {
+          throw new BadRequestException('The selected office does not exist.');
+        }
+      }
+      throw err;
+    }
   }
 
   async remove(id: string): Promise<EmployeeWithRelations> {

@@ -103,7 +103,7 @@ export function DocumentTracker({ document }: DocumentTrackerProps) {
       {
         status: 'received',
         label: 'Received',
-        description: 'Document was received and acknowledged by at least one recipient office.',
+        description: 'Document was acknowledged by all recipient offices.',
         icon: STEP_ICON.received,
         timestamp: document.dateReceived,
         person: document.receivedBy,

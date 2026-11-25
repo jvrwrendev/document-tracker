@@ -1,6 +1,10 @@
 export { useDocuments } from '@/features/documents/hooks/useDocuments';
 export { useDocumentDirectory } from '@/features/documents/hooks/useDocuments';
 export type { UseDocumentsReturn } from '@/features/documents/hooks/useDocuments';
+export {
+  useInboxDocuments,
+  useOutboxDocuments,
+} from '@/features/documents/hooks/useOfficeDocuments';
 export { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail';
 export type { UseDocumentDetailReturn } from '@/features/documents/hooks/useDocumentDetail';
 export { useRegisterDocument } from '@/features/documents/hooks/useRegisterDocument';

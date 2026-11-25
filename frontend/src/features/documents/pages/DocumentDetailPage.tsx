@@ -32,7 +32,6 @@ import {
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_CLASSIFICATION_LABELS,
   DOCUMENT_STATUS_LABELS,
-  canTransition,
   canTrackRecipients as canTrackRecipientsByRole,
 } from '@/constants';
 import { formatDate, formatRelative, cn } from '@/lib/utils';
@@ -44,22 +43,18 @@ import { useDocumentDetail } from '@/features/documents/hooks/useDocumentDetail'
 import { DocumentTracker } from '@/features/documents/components/DocumentTracker';
 import { RecipientTracking } from '@/features/documents/components/RecipientTracking';
 import { AttachmentPreview } from '@/features/documents/components/AttachmentPreview';
-import type { DocumentStatus, Permission } from '@/types';
+import type { DocumentStatus } from '@/types';
 import type {
   DocumentAttachment,
   DocumentDetail,
   DocumentPerson,
 } from '@/features/documents/types/document';
+import {
+  recipientOfficeCode,
+  recipientOfficeName,
+} from '@/features/documents/types/document';
 
 type ActionType = 'receive';
-
-const ACTION_STATUS_MAP: Record<ActionType, DocumentStatus> = {
-  receive: 'received',
-};
-
-const ACTION_PERMISSION: Record<ActionType, Permission> = {
-  receive: 'documents.receive',
-};
 
 const ACTION_META: Record<
   ActionType,
@@ -123,9 +118,6 @@ export function DocumentDetailPage() {
     new Date(doc.dueDate).getTime() < Date.now() &&
     !TERMINAL_STATUSES.includes(doc.status);
 
-  const allowed = (action: ActionType): boolean =>
-    hasPermission(ACTION_PERMISSION[action]) && canTransition(doc.status, ACTION_STATUS_MAP[action]);
-
   const isTerminal = TERMINAL_STATUSES.includes(doc.status);
 
   // Per-office receiving: the actor's own office must be a designated
@@ -133,7 +125,7 @@ export function DocumentDetailPage() {
   const myRecipient = doc.recipients.find(r => r.officeId === user.officeId);
   const receiveAvailable =
     myRecipient?.status === 'pending' &&
-    allowed('receive') &&
+    hasPermission('documents.receive') &&
     !isTerminal &&
     doc.encodedById !== user.id;
 
@@ -366,7 +358,7 @@ function DocumentHero({
     .filter(r => r.status === 'received' && r.receivedAt)
     .sort((a, b) => new Date(b.receivedAt as string).getTime() - new Date(a.receivedAt as string).getTime())[0];
   const latestReceiveOffice = latestReceive
-    ? `${latestReceive.office.code} — ${latestReceive.office.name}`
+    ? `${recipientOfficeCode(latestReceive)} — ${recipientOfficeName(latestReceive)}`
     : null;
   const latestReceiverName =
     (latestReceive?.receivedById ? userById(latestReceive.receivedById)?.fullName : undefined) ??
@@ -653,7 +645,7 @@ function DocumentInfoSidebar({
                 d.destinationsAllOffices
                   ? 'All Offices'
                   : d.recipients.length > 0
-                    ? d.recipients.map(r => `${r.office.code} â€” ${r.office.name}`).join(', ')
+                    ? d.recipients.map(r => `${recipientOfficeCode(r)} — ${recipientOfficeName(r)}`).join(', ')
                     : 'â€”'
               }
             />

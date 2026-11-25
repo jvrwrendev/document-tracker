@@ -71,7 +71,7 @@ export function OfficeDetailPage() {
     if (!office) return;
     const ok = await confirm({
       title: 'Delete Office',
-      description: `Permanently delete ${office.name}? This will affect user and document assignments.`,
+      description: `Permanently delete ${office.name}? Associated user accounts will not be deleted. They will become Unassigned and can be reassigned later; their roles, credentials, and history remain intact.`,
       confirmText: 'Delete Office',
       variant: 'danger',
     });
@@ -79,7 +79,10 @@ export function OfficeDetailPage() {
     setDeleteLoading(true);
     try {
       await officeService.remove(office.id);
-      toast.success('Office deleted', `${office.name} has been removed.`);
+      toast.success(
+        'Office deleted',
+        `${office.name} has been removed. Associated users are now Unassigned.`,
+      );
       navigate('/offices');
     } catch (err) {
       const message =

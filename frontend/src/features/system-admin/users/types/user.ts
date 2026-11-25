@@ -25,7 +25,7 @@ export interface EmployeeSummary {
   position: string;
   email: string;
   phone: string | null;
-  officeId: string;
+  officeId: string | null;
   office: OfficeSummary | null;
   isActive: boolean;
   hiredAt: string;
@@ -122,6 +122,7 @@ export interface UpdateUserPayload {
   password?: string;
   role?: UserRoleApi;
   status?: UserStatusApi;
+  officeId?: string | null;
 }
 
 export interface ResetUserPasswordPayload {

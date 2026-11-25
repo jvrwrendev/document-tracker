@@ -71,7 +71,7 @@ function positionOf(user: UserAccount): string {
 
 function officeNameOf(user: UserAccount): string {
   const office = user.employee?.office;
-  if (!office) return '—';
+  if (!office) return 'Unassigned';
   return `${office.code} · ${office.name}`;
 }
 
@@ -130,7 +130,8 @@ export function UsersPage() {
     return users.filter(u => {
       if (roleFilter !== 'all' && u.role !== roleFilter) return false;
       if (statusFilter !== 'all' && u.status !== statusFilter) return false;
-      if (officeFilter !== 'all' && officeIdOf(u) !== officeFilter) return false;
+      if (officeFilter === 'unassigned' && officeIdOf(u) !== null) return false;
+      if (officeFilter !== 'all' && officeFilter !== 'unassigned' && officeIdOf(u) !== officeFilter) return false;
       if (q) {
         const haystack = [
           fullNameOf(u),
@@ -277,6 +278,7 @@ export function UsersPage() {
                 onChange={e => setOfficeFilter(e.target.value)}
                 options={[
                   { value: 'all', label: 'All Offices' },
+                  { value: 'unassigned', label: 'Unassigned' },
                   ...offices.map(o => ({ value: o.id, label: `${o.code} — ${o.name}` })),
                 ]}
                 className="w-full sm:w-60"
@@ -385,13 +387,7 @@ export function UsersPage() {
               key: 'office',
               header: 'Office',
               width: '200px',
-              cell: u => {
-                const office = u.employee?.office;
-                if (!office) {
-                  return <span className="text-xs text-slate-500">—</span>;
-                }
-                return <Badge variant="slate">{officeNameOf(u)}</Badge>;
-              },
+              cell: u => <Badge variant="slate">{officeNameOf(u)}</Badge>,
             },
             {
               key: 'status',

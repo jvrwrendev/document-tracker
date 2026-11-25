@@ -10,7 +10,7 @@ export interface AuthenticatedUser {
   sessionId: string | null;
   employee?: {
     id: string;
-    officeId: string;
+    officeId: string | null;
   } | null;
 }
 

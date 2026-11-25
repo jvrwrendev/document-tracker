@@ -511,7 +511,7 @@ export function UserDetailPage() {
               </Link>
             ) : (
               <p className="px-5 py-4 text-xs text-slate-500">
-                No office is currently assigned to this user.
+                Unassigned — this user cannot perform office-scoped actions until reassigned.
               </p>
             )}
           </Card>

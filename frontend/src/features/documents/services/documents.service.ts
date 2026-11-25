@@ -15,6 +15,10 @@ import type {
   DocumentUpdateInput,
   DocumentAttachment,
   DocumentRecipient,
+  InboxFilters,
+  InboxListResponse,
+  OutboxFilters,
+  OutboxListResponse,
 } from '@/features/documents/types/document';
 import type { DocumentType } from '@/types';
 
@@ -72,6 +76,7 @@ function buildQuery(filters?: DocumentFilters): string {
   if (filters.status) params.set('status', filters.status);
   if (filters.statuses?.length) params.set('statuses', filters.statuses.join(','));
   if (filters.typeId) params.set('typeId', filters.typeId);
+  if (filters.typeCode) params.set('typeCode', filters.typeCode);
   if (filters.classification) params.set('classification', filters.classification);
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.source) params.set('source', filters.source);
@@ -82,8 +87,40 @@ function buildQuery(filters?: DocumentFilters): string {
   if (filters.receivedById) params.set('receivedById', filters.receivedById);
   if (filters.recipientOfficeId) params.set('recipientOfficeId', filters.recipientOfficeId);
   if (filters.recipientStatus) params.set('recipientStatus', filters.recipientStatus);
+  if (filters.receiptState) params.set('receiptState', filters.receiptState);
   if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
   if (filters.dateTo) params.set('dateTo', filters.dateTo);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.order) params.set('order', filters.order);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+function buildInboxQuery(filters?: InboxFilters): string {
+  if (!filters) return '';
+  const params = new URLSearchParams();
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
+  if (filters.search) params.set('search', filters.search);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.recipientStatus) params.set('recipientStatus', filters.recipientStatus);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.order) params.set('order', filters.order);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+function buildOutboxQuery(filters?: OutboxFilters): string {
+  if (!filters) return '';
+  const params = new URLSearchParams();
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
+  if (filters.search) params.set('search', filters.search);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.typeCode) params.set('typeCode', filters.typeCode);
+  if (filters.receiptState) params.set('receiptState', filters.receiptState);
   if (filters.sortBy) params.set('sortBy', filters.sortBy);
   if (filters.order) params.set('order', filters.order);
   const qs = params.toString();
@@ -117,6 +154,18 @@ export const documentsService = {
   list(filters?: DocumentFilters): Promise<DocumentListResponse> {
     if (filters?.fetchAll) return listAll(filters);
     return request<DocumentListResponse>(`/documents${buildQuery(filters)}`).then(normalizeList);
+  },
+
+  inbox(filters?: InboxFilters): Promise<InboxListResponse> {
+    return request<InboxListResponse>(`/documents/inbox${buildInboxQuery(filters)}`).then(
+      response => ({ ...response, items: response.items.map(normalizeDocument) }),
+    );
+  },
+
+  outbox(filters?: OutboxFilters): Promise<OutboxListResponse> {
+    return request<OutboxListResponse>(`/documents/outbox${buildOutboxQuery(filters)}`).then(
+      response => ({ ...response, items: response.items.map(normalizeDocument) }),
+    );
   },
 
   getById(id: string): Promise<DocumentDetail> {

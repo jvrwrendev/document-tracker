@@ -37,13 +37,11 @@ export const authService = {
 
   async restoreSession(): Promise<AuthUser | null> {
     try {
-      return (await authApi.me());
+      // Refresh first on page load so /auth/me is never called with a known-to-be
+      // expired access token. The refresh response already contains the current user.
+      return (await authApi.refresh()).user;
     } catch {
-      try {
-        return (await authApi.refresh()).user;
-      } catch {
-        return null;
-      }
+      return null;
     }
   },
 

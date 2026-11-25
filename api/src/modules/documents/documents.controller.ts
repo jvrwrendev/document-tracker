@@ -17,6 +17,8 @@ import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { FilterDocumentsDto } from './dto/filter-documents.dto';
+import { InboxDocumentsDto } from './dto/inbox-documents.dto';
+import { OutboxDocumentsDto } from './dto/outbox-documents.dto';
 import { CheckDocumentNumberDto } from './dto/check-document-number.dto';
 import { ReceiveDocumentDto } from './dto/receive-document.dto';
 import { SetRecipientNoteDto } from './dto/set-recipient-note.dto';
@@ -70,6 +72,26 @@ export class DocumentsController {
       query.documentNumber,
       query.originatingOfficeId,
     );
+  }
+
+  @SkipThrottle()
+  @Permissions('documents.view')
+  @Get('inbox')
+  inbox(
+    @Query() filter: InboxDocumentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.findInbox(filter, user.employee?.officeId);
+  }
+
+  @SkipThrottle()
+  @Permissions('documents.view')
+  @Get('outbox')
+  outbox(
+    @Query() filter: OutboxDocumentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.findOutbox(filter, user.employee?.officeId);
   }
 
   @SkipThrottle()

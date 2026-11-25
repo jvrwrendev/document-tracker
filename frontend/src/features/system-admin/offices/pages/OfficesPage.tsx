@@ -150,14 +150,17 @@ export function OfficesPage() {
   const handleDelete = async (office: Office) => {
     const ok = await confirm({
       title: 'Delete Office',
-      description: `Permanently delete ${office.name}? This will affect user and document assignments.`,
+      description: `Permanently delete ${office.name}? Associated user accounts will not be deleted. They will become Unassigned and can be reassigned later; their roles, credentials, and history remain intact.`,
       confirmText: 'Delete Office',
       variant: 'danger',
     });
     if (!ok) return;
     try {
       await remove(office.id);
-      toast.success('Office deleted', `${office.name} has been removed.`);
+      toast.success(
+        'Office deleted',
+        `${office.name} has been removed. Associated users are now Unassigned.`,
+      );
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to delete office.';

@@ -10,6 +10,16 @@ export type DocumentStatus =
 
 export type RecipientStatus = 'pending' | 'received';
 
+export type DocumentReceiptState = 'awaiting' | 'partial' | 'fully_received';
+
+export interface DocumentReceiptProgress {
+  total: number;
+  received: number;
+  pending: number;
+  percentage: number;
+  state: DocumentReceiptState;
+}
+
 export type DocumentPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type DocumentSource = 'internal' | 'external';
 export type DocumentClassification = 'public' | 'internal' | 'confidential' | 'restricted';
@@ -93,8 +103,10 @@ export interface DocumentRecipientOffice {
 
 export interface DocumentRecipient {
   id: string;
-  officeId: string;
-  office: DocumentRecipientOffice;
+  officeId: string | null;
+  office: DocumentRecipientOffice | null;
+  officeName: string | null;
+  officeCode: string | null;
   status: RecipientStatus;
   receivedById: string | null;
   receivedAt: string | null;
@@ -104,6 +116,37 @@ export interface DocumentRecipient {
   noteAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export function recipientOfficeName(recipient: DocumentRecipient): string {
+  return recipient.office?.name ?? recipient.officeName ?? 'Deleted office';
+}
+
+export function recipientOfficeCode(recipient: DocumentRecipient): string {
+  return recipient.office?.code ?? recipient.officeCode ?? '';
+}
+
+export function calculateReceiptProgress(
+  recipients: DocumentRecipient[],
+): DocumentReceiptProgress {
+  const active = recipients.filter(recipient => recipient.officeId !== null);
+  const total = active.length;
+  const received = active.filter(recipient => recipient.status === 'received').length;
+  const pending = total - received;
+  const state: DocumentReceiptState =
+    total === 0 || received === 0
+      ? 'awaiting'
+      : received === total
+        ? 'fully_received'
+        : 'partial';
+
+  return {
+    total,
+    received,
+    pending,
+    percentage: total === 0 ? 0 : Math.round((received / total) * 100),
+    state,
+  };
 }
 
 export interface DocumentListItem {
@@ -124,6 +167,7 @@ export interface DocumentListItem {
   originatingOfficeName: string | null;
   destinationsAllOffices: boolean;
   recipients: DocumentRecipient[];
+  receiptProgress?: DocumentReceiptProgress;
   currentOfficeId: string;
   currentHolderId: string | null;
   encodedById: string;
@@ -208,6 +252,7 @@ export interface DocumentFilters {
   status?: DocumentStatus;
   statuses?: DocumentStatus[];
   typeId?: string;
+  typeCode?: DocumentType;
   classification?: DocumentClassification;
   priority?: DocumentPriority;
   source?: DocumentSource;
@@ -218,6 +263,7 @@ export interface DocumentFilters {
   receivedById?: string;
   recipientOfficeId?: string;
   recipientStatus?: RecipientStatus;
+  receiptState?: DocumentReceiptState;
   dateFrom?: string;
   dateTo?: string;
   sortBy?: DocumentSortBy;
@@ -229,6 +275,51 @@ export interface DocumentListResponse {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface InboxSummary {
+  totalIncoming: number;
+  awaitingReceipt: number;
+  received: number;
+  overdue: number;
+}
+
+export interface OutboxSummary {
+  totalOutgoing: number;
+  awaitingReceipt: number;
+  partiallyReceived: number;
+  fullyReceived: number;
+}
+
+export interface InboxFilters {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  priority?: DocumentPriority;
+  recipientStatus?: RecipientStatus;
+  status?: DocumentStatus;
+  sortBy?: DocumentSortBy;
+  order?: 'asc' | 'desc';
+}
+
+export interface OutboxFilters {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  priority?: DocumentPriority;
+  status?: DocumentStatus;
+  typeCode?: DocumentType;
+  receiptState?: DocumentReceiptState;
+  sortBy?: DocumentSortBy;
+  order?: 'asc' | 'desc';
+}
+
+export interface InboxListResponse extends DocumentListResponse {
+  summary: InboxSummary;
+}
+
+export interface OutboxListResponse extends DocumentListResponse {
+  summary: OutboxSummary;
 }
 
 export interface DocumentCreateInput {
@@ -259,6 +350,7 @@ export interface DocumentReceiveInput {
 export interface DocumentReceiveResult {
   recipient: DocumentRecipient;
   documentStatus: DocumentStatus;
+  receiptProgress: DocumentReceiptProgress;
 }
 
 

@@ -55,7 +55,7 @@ export function RoleInfoCard({ role, office }: RoleInfoCardProps) {
           </p>
           <div className="flex items-center gap-2 text-xs text-slate-700">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            {office?.name ?? '—'}
+            {office?.name ?? 'Unassigned'}
             {office?.code ? (
               <span className="font-mono text-[10px] text-slate-500">· {office.code}</span>
             ) : null}

@@ -13,6 +13,8 @@ import { PrismaService } from '../../prisma/prisma.service';
  *   Documents page.
  * - Only documents in an active workflow status (registered / received) are
  *   eligible, so already-archived documents are never reprocessed.
+ * - Receipt progress does not extend the retention window: a partially
+ *   received document is still archived seven days after registration.
  * - Metadata, recipients, attachments, and receiving history are preserved:
  *   only `status` changes plus history/tracking audit entries are written.
  */

@@ -32,7 +32,11 @@ import { formatRelative, cn, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
-import type { DocumentListItem } from '@/features/documents/types/document';
+import {
+  calculateReceiptProgress,
+  type DocumentListItem,
+} from '@/features/documents/types/document';
+import { ReceiptProgress } from '@/features/documents/components/ReceiptProgress';
 
 const DEFAULT_FILTERS = {
   search: '',
@@ -90,9 +94,10 @@ export function TrackingPage() {
     ).length;
     const completed = documents.filter(d => d.status === 'archived').length;
     const overdue = documents.filter(isOverdueDoc).length;
-    const awaitingReceipt = documents.filter(
-      d => d.status === 'registered' && d.recipients.some(r => r.status === 'pending')
-    ).length;
+    const awaitingReceipt = documents.filter(document => {
+      const progress = calculateReceiptProgress(document.recipients);
+      return progress.total > 0 && progress.state === 'awaiting';
+    }).length;
     return { active, completed, overdue, awaitingReceipt };
   }, [documents]);
 
@@ -272,7 +277,7 @@ export function TrackingPage() {
                 key: 'recipients',
                 header: 'Receiving',
                 width: '175px',
-                cell: d => <RecipientProgress doc={d} />,
+                cell: d => <ReceiptProgress progress={calculateReceiptProgress(d.recipients)} />,
               },
               {
                 key: 'currentOfficeId',
@@ -364,41 +369,6 @@ export function TrackingPage() {
           </div>
         )}
       </Card>
-    </div>
-  );
-}
-
-/**
- * Per-office receiving progress. Each recipient office is tracked
- * independently, so this is the meaningful "where is it now" signal.
- */
-function RecipientProgress({ doc }: { doc: DocumentListItem }) {
-  const total = doc.recipients.length;
-  if (total === 0) {
-    return <span className="text-xs text-slate-400">No recipients</span>;
-  }
-  const received = doc.recipients.filter(r => r.status === 'received').length;
-  const complete = received === total;
-
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center justify-between text-[11px] mb-1">
-        <span
-          className={cn(
-            'font-semibold tabular-nums',
-            complete ? 'text-emerald-700' : 'text-slate-700',
-          )}
-        >
-          {received}/{total}
-        </span>
-        <span className="text-slate-400">{complete ? 'All received' : 'offices'}</span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-        <div
-          className={cn('h-full rounded-full transition-all', complete ? 'bg-emerald-500' : 'bg-brand-500')}
-          style={{ width: `${Math.round((received / total) * 100)}%` }}
-        />
-      </div>
     </div>
   );
 }
