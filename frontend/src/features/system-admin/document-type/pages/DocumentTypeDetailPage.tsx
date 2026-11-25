@@ -217,7 +217,7 @@ export function DocumentTypeDetailPage() {
         ]}
         actions={
           <>
-            {hasPermission('document_types.edit') && (
+            {hasPermission('documents.edit') && (
               <Button
                 variant="outline"
                 leftIcon={record.isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
@@ -231,7 +231,7 @@ export function DocumentTypeDetailPage() {
                     : 'Activate'}
               </Button>
             )}
-            {hasPermission('document_types.edit') && (
+            {hasPermission('documents.edit') && (
               <Button
                 variant="outline"
                 leftIcon={<Edit2 className="w-4 h-4" />}
@@ -244,7 +244,7 @@ export function DocumentTypeDetailPage() {
                 Edit
               </Button>
             )}
-            {hasPermission('document_types.delete') && (
+            {hasPermission('documents.delete') && (
               <Button
                 variant="outline"
                 leftIcon={<Trash2 className="w-4 h-4" />}

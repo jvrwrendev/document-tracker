@@ -168,29 +168,19 @@ export interface DocumentListItem {
   destinationsAllOffices: boolean;
   recipients: DocumentRecipient[];
   receiptProgress?: DocumentReceiptProgress;
-  currentOfficeId: string;
-  currentHolderId: string | null;
   encodedById: string;
   receivedById: string | null;
   dateReceived: string | null;
-  approvedById: string | null;
-  approvedAt: string | null;
-  approvedRemarks: string | null;
-  releasedById: string | null;
-  releasedAt: string | null;
-  releasedRemarks: string | null;
   dueDate: string | null;
   attachmentCount: number;
   attachments?: DocumentAttachment[];
   _count?: {
     reviews: number;
-    releases: number;
     archives: number;
     attachments: number;
   };
   counts: {
     reviews: number;
-    releases: number;
     archives: number;
   };
   createdAt: string;
@@ -200,13 +190,9 @@ export interface DocumentListItem {
 export interface DocumentDetail extends Omit<DocumentListItem, 'attachmentCount'> {
   attachments: DocumentAttachment[];
   reviews: DocumentReview[];
-  releases: DocumentRelease[];
   archives: DocumentArchive[];
   encodedBy: DocumentPerson | null;
   receivedBy: DocumentPerson | null;
-  approvedBy: DocumentPerson | null;
-  releasedBy: DocumentPerson | null;
-  currentHolder: DocumentPerson | null;
 }
 
 export interface DocumentPerson {
@@ -257,8 +243,6 @@ export interface DocumentFilters {
   priority?: DocumentPriority;
   source?: DocumentSource;
   originatingOfficeId?: string;
-  currentOfficeId?: string;
-  currentHolderId?: string;
   encodedById?: string;
   receivedById?: string;
   recipientOfficeId?: string;
@@ -335,8 +319,6 @@ export interface DocumentCreateInput {
   originatingOfficeName?: string;
   destinationsAllOffices?: boolean;
   recipientOfficeIds?: string[];
-  currentOfficeId: string;
-  currentHolderId?: string;
   dueDate?: string;
   tags?: string[];
 }

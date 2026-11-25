@@ -35,6 +35,7 @@ export const navigation: NavItem[] = [
     to: '/dashboard',
     icon: 'LayoutDashboard',
     section: 'main',
+    permission: 'dashboard.view',
   },
   {
     id: 'documents',
@@ -42,6 +43,7 @@ export const navigation: NavItem[] = [
     to: '/documents',
     icon: 'FileText',
     section: 'main',
+    permission: 'documents.view',
   },
   {
     id: 'inbox',
@@ -49,7 +51,7 @@ export const navigation: NavItem[] = [
     to: '/inbox',
     icon: 'Inbox',
     section: 'workspace',
-    roles: ['system_admin', 'office_admin', 'document_officer'],
+    permission: 'inbox.view',
   },
   {
     id: 'outbox',
@@ -57,6 +59,7 @@ export const navigation: NavItem[] = [
     to: '/outbox',
     icon: 'Mail',
     section: 'workspace',
+    permission: 'outbox.view',
   },
   {
     id: 'tracking',
@@ -64,9 +67,7 @@ export const navigation: NavItem[] = [
     to: '/tracking',
     icon: 'Activity',
     section: 'workspace',
-    // Recipient Tracking is role-restricted: an encoder registers documents and
-    // an officer receives them, neither may monitor distribution.
-    permission: 'documents.track',
+    permission: 'tracking.view',
     roles: RECIPIENT_TRACKING_ROLES,
   },
   {
@@ -75,7 +76,7 @@ export const navigation: NavItem[] = [
     to: '/archive',
     icon: 'Archive',
     section: 'workspace',
-    roles: ['system_admin', 'office_admin'],
+    permission: 'archive.view',
   },
   {
     id: 'users',
@@ -83,7 +84,7 @@ export const navigation: NavItem[] = [
     to: '/users',
     icon: 'Users',
     section: 'admin',
-    roles: ['system_admin', 'office_admin'],
+    permission: 'users.view',
   },
   {
     id: 'offices',
@@ -91,7 +92,7 @@ export const navigation: NavItem[] = [
     to: '/offices',
     icon: 'Building2',
     section: 'admin',
-    roles: ['system_admin', 'office_admin'],
+    permission: 'offices.view',
   },
   {
     id: 'document-types',
@@ -99,7 +100,7 @@ export const navigation: NavItem[] = [
     to: '/document-types',
     icon: 'Tag',
     section: 'admin',
-    roles: ['system_admin', 'office_admin'],
+    permission: 'documents.view',
   },
   {
     id: 'roles',
@@ -107,7 +108,7 @@ export const navigation: NavItem[] = [
     to: '/roles',
     icon: 'ShieldCheck',
     section: 'admin',
-    roles: ['system_admin'],
+    permission: 'roles.view',
   },
   {
     id: 'audit',
@@ -115,7 +116,7 @@ export const navigation: NavItem[] = [
     to: '/audit',
     icon: 'History',
     section: 'admin',
-    roles: ['system_admin', 'office_admin'],
+    permission: 'audit.view',
   },
   {
     id: 'notifications',

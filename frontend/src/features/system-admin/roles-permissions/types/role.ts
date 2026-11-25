@@ -1,5 +1,4 @@
 import type { Permission, UserRole } from '@/types';
-import { RECIPIENT_TRACKING_ROLES, ROLE_SHORT_LABELS } from '@/constants';
 
 export interface RoleSummary {
   id: string;
@@ -24,68 +23,109 @@ export interface RoleUser {
   createdAt: string;
 }
 
-export interface PermissionGroupMeta {
-  label: string;
-  iconName: string;
-  permissions: Array<{ key: Permission; label: string; restrictedTo?: UserRole[] }>;
+export interface PermissionCatalogEntry {
+  key: Permission;
+  module: string;
+  action: string;
 }
 
-export const PERMISSION_GROUPS: PermissionGroupMeta[] = [
-  {
-    label: 'Documents',
-    iconName: 'FileText',
-    permissions: [
-      { key: 'documents.view', label: 'View documents' },
-      { key: 'documents.create', label: 'Create documents' },
-      { key: 'documents.edit', label: 'Edit documents' },
-      { key: 'documents.delete', label: 'Delete documents' },
-      { key: 'documents.register', label: 'Register documents' },
-      { key: 'documents.receive', label: 'Receive documents' },
-      { key: 'documents.route', label: 'Route documents' },
-      { key: 'documents.review', label: 'Review documents' },
-      { key: 'documents.recommend', label: 'Recommend documents' },
-      { key: 'documents.approve', label: 'Approve documents' },
-      { key: 'documents.reject', label: 'Reject documents' },
-      { key: 'documents.return', label: 'Return documents' },
-      { key: 'documents.release', label: 'Release documents' },
-      { key: 'documents.archive', label: 'Archive documents' },
-      { key: 'documents.track', label: 'Track documents (Recipient Tracking)', restrictedTo: RECIPIENT_TRACKING_ROLES },
-    ],
-  },
-  {
-    label: 'Users & Offices',
-    iconName: 'Users',
-    permissions: [
-      { key: 'users.view', label: 'View users' },
-      { key: 'users.create', label: 'Create users' },
-      { key: 'users.edit', label: 'Edit users' },
-      { key: 'users.delete', label: 'Delete users' },
-      { key: 'offices.view', label: 'View offices' },
-      { key: 'offices.create', label: 'Create offices' },
-      { key: 'offices.edit', label: 'Edit offices' },
-      { key: 'offices.delete', label: 'Delete offices' },
-    ],
-  },
-  {
-    label: 'System & Audit',
-    iconName: 'ShieldCheck',
-    permissions: [
-      { key: 'roles.view', label: 'View roles' },
-      { key: 'roles.edit', label: 'Edit roles' },
-      { key: 'audit.view', label: 'View audit logs' },
-      { key: 'notifications.view', label: 'View notifications' },
-      { key: 'settings.view', label: 'View settings' },
-      { key: 'settings.edit', label: 'Edit settings' },
-      { key: 'dashboard.view', label: 'View dashboard' },
-    ],
-  },
-];
+export interface RolePermissionCatalog {
+  permissions: PermissionCatalogEntry[];
+  modules: Array<{ module: string; permissions: PermissionCatalogEntry[] }>;
+  reserved: Permission[];
+  restricted: Record<string, UserRole[] | string[]>;
+  defaults: Record<string, Permission[]>;
+}
 
-export const ALL_PERMISSIONS: Permission[] = PERMISSION_GROUPS.flatMap(g =>
-  g.permissions.map(p => p.key),
-);
+export interface PermissionGroupMeta {
+  module: string;
+  iconName: string;
+  permissions: Array<{
+    key: Permission;
+    label: string;
+    restrictedTo?: string[];
+    reserved?: boolean;
+    mandatory?: boolean;
+  }>;
+}
 
-export function roleCoveragePercent(role: RoleDefinition | null | undefined): number {
-  if (!role || ALL_PERMISSIONS.length === 0) return 0;
-  return Math.round((role.permissions.length / ALL_PERMISSIONS.length) * 100);
+export const PERMISSION_LABELS: Record<string, string> = {
+  'dashboard.view': 'View dashboard',
+  'documents.view': 'View documents',
+  'documents.create': 'Create documents',
+  'documents.edit': 'Edit documents',
+  'documents.delete': 'Delete documents',
+  'documents.receive': 'Receive documents',
+  'inbox.view': 'View inbox',
+  'outbox.view': 'View outbox',
+  'tracking.view': 'View tracking',
+  'archive.view': 'View archive',
+  'users.view': 'View users',
+  'users.create': 'Create users',
+  'users.edit': 'Edit users',
+  'users.delete': 'Delete users',
+  'employees.view': 'View employees',
+  'employees.create': 'Create employees',
+  'employees.edit': 'Edit employees',
+  'employees.delete': 'Delete employees',
+  'offices.view': 'View offices',
+  'offices.create': 'Create offices',
+  'offices.edit': 'Edit offices',
+  'offices.delete': 'Delete offices',
+  'roles.view': 'View roles',
+  'roles.create': 'Create roles',
+  'roles.edit': 'Edit roles',
+  'roles.delete': 'Delete roles',
+  'permissions.view': 'View permissions',
+  'permissions.assign': 'Assign permissions',
+  'settings.view': 'View settings',
+  'settings.edit': 'Edit settings',
+  'audit.view': 'View audit logs',
+  'backup.view': 'View backups',
+  'backup.create': 'Create backups',
+  'backup.restore': 'Restore backups',
+};
+
+export const MODULE_ICONS: Record<string, string> = {
+  Dashboard: 'LayoutDashboard',
+  Documents: 'FileText',
+  Inbox: 'Inbox',
+  Outbox: 'Mail',
+  Tracking: 'Activity',
+  Archive: 'Archive',
+  Users: 'Users',
+  Employees: 'UserCog',
+  Offices: 'Building2',
+  Roles: 'ShieldCheck',
+  Permissions: 'KeyRound',
+  Settings: 'Settings',
+  'Audit Logs': 'History',
+  Backup: 'Database',
+};
+
+export function buildPermissionGroups(
+  catalog: RolePermissionCatalog | null,
+  selectedRole?: string,
+): PermissionGroupMeta[] {
+  const modules = catalog?.modules ?? [];
+  const reserved = new Set(catalog?.reserved ?? []);
+  const defaults = new Set(catalog?.defaults?.[selectedRole ?? ''] ?? []);
+  return modules.map(group => ({
+    module: group.module,
+    iconName: MODULE_ICONS[group.module] ?? 'ShieldCheck',
+    permissions: group.permissions.map(p => ({
+      key: p.key as Permission,
+      label: PERMISSION_LABELS[p.key] ?? p.key,
+      restrictedTo: (catalog?.restricted?.[p.key] as string[] | undefined) ?? undefined,
+      reserved: reserved.has(p.key as Permission),
+      mandatory: selectedRole === 'system_admin' && defaults.has(p.key as Permission),
+    })),
+  }));
+}
+
+export function roleCoveragePercent(role: RoleDefinition | null | undefined, catalog: RolePermissionCatalog | null): number {
+  const total = (catalog?.permissions ?? []).filter(p => !(catalog?.reserved ?? []).includes(p.key)).length;
+  if (!role || total === 0) return 0;
+  const granted = role.permissions.filter(p => (catalog?.permissions ?? []).some(c => c.key === p)).length;
+  return Math.round((granted / total) * 100);
 }

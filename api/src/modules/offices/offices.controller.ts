@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ROLES } from '../../common/constants/roles.constants';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,6 +31,7 @@ export class OfficesController {
   constructor(private readonly officesService: OfficesService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('offices.create')
   @Audit('office.create', 'offices', 'Office')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -38,18 +40,21 @@ export class OfficesController {
   }
 
   @SkipThrottle()
+  @Permissions('offices.view')
   @Get()
   findAll(@Query() filter: FilterOfficesDto) {
     return this.officesService.findAll(filter);
   }
 
   @SkipThrottle()
+  @Permissions('offices.view')
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.officesService.findOne(id);
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('offices.edit')
   @Audit('office.update', 'offices', 'Office')
   @Patch(':id')
   update(
@@ -60,6 +65,7 @@ export class OfficesController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
+  @Permissions('offices.delete')
   @Audit('office.delete', 'offices', 'Office')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)

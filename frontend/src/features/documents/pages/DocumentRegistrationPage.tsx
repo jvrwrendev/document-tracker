@@ -46,7 +46,6 @@ import { useDocumentTypes } from '@/features/system-admin/document-type/hooks/us
 import { useRegisterDocument } from '@/features/documents/hooks/useRegisterDocument';
 import { useDocumentNumberCheck } from '@/features/documents/hooks/useDocumentNumberCheck';
 import { attachmentsService } from '@/features/documents/services/documents.service';
-import { useRoutingOptions } from '@/features/documents/hooks/useRoutingOptions';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { FORM_DRAFT_KEYS } from '@/lib/formDraftKeys';
 import { cn } from '@/lib/utils';
@@ -64,7 +63,6 @@ interface FormState {
   originatingOfficeName: string;
   allOffices: boolean;
   recipientOfficeIds: string[];
-  assignedUserId: string;
   description: string;
   dueDate: string;
   tagsInput: string;
@@ -85,7 +83,6 @@ const INITIAL_STATE: FormState = {
   originatingOfficeName: '',
   allOffices: true,
   recipientOfficeIds: [],
-  assignedUserId: '',
   description: '',
   dueDate: '',
   tagsInput: '',
@@ -134,7 +131,6 @@ export function DocumentRegistrationPage() {
   } = useDocumentTypes({ pageSize: 100, isActive: true });
   const registration = useRegisterDocument();
   const { offices, loading: officesLoading, error: officesError } = useOffices();
-  const { users: routingUsers, loading: usersLoading, error: usersError } = useRoutingOptions();
 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
@@ -228,22 +224,14 @@ export function DocumentRegistrationPage() {
     );
   }, [offices, recipientSearch]);
 
-  const assignedUsers = useMemo(() => {
-    return routingUsers.filter(option => option.officeId === user.officeId);
-  }, [routingUsers, user.officeId]);
-
   useEffect(() => {
     if (officesLoading || offices.length === 0) return;
     const officeIds = new Set(offices.map(office => office.id));
-    const routingUserIds = new Set(routingUsers.map(option => option.id));
     setForm(previous => {
       const originatingOfficeId = officeIds.has(previous.originatingOfficeId)
         ? previous.originatingOfficeId
         : '';
       const recipientOfficeIds = previous.recipientOfficeIds.filter(id => officeIds.has(id));
-      const assignedUserId = routingUserIds.has(previous.assignedUserId)
-        ? previous.assignedUserId
-        : '';
 
       const originUntouched =
         previous.originMode === '' &&
@@ -257,8 +245,7 @@ export function DocumentRegistrationPage() {
       if (
         origin.originMode === previous.originMode &&
         origin.originatingOfficeId === previous.originatingOfficeId &&
-        recipientOfficeIds.length === previous.recipientOfficeIds.length &&
-        assignedUserId === previous.assignedUserId
+        recipientOfficeIds.length === previous.recipientOfficeIds.length
       ) {
         return previous;
       }
@@ -267,10 +254,9 @@ export function DocumentRegistrationPage() {
         ...previous,
         ...origin,
         recipientOfficeIds,
-        assignedUserId,
       };
     });
-  }, [offices, officesLoading, routingUsers, user.officeId]);
+  }, [offices, officesLoading, user.officeId]);
 
   useEffect(() => {
     if (documentTypesLoading || documentTypes.length === 0) return;
@@ -456,8 +442,6 @@ export function DocumentRegistrationPage() {
       originatingOfficeName,
       destinationsAllOffices,
       recipientOfficeIds: destinationsAllOffices ? [] : form.recipientOfficeIds,
-      currentOfficeId: user.officeId,
-      currentHolderId: form.assignedUserId || user.id,
       dueDate: form.dueDate || undefined,
       tags,
     });
@@ -1126,22 +1110,6 @@ export function DocumentRegistrationPage() {
                     {form.recipientOfficeIds.length === 1 ? '' : 's'} selected
                   </p>
                 )}
-
-                <Select
-                  label="Assigned Officer (Optional)"
-                  placeholder="Choose officer"
-                  value={form.assignedUserId}
-                  onChange={e => setField('assignedUserId', e.target.value)}
-                  options={[
-                    { value: '', label: 'Unassigned' },
-                    ...assignedUsers.map(u => ({
-                      value: u.id,
-                      label: u.fullName + (u.position ? ' (' + u.position + ')' : ''),
-                    })),
-                  ]}
-                  disabled={usersLoading}
-                  hint={usersError ?? undefined}
-                />
               </div>
             </SectionCard>
           )}
@@ -1271,10 +1239,9 @@ export function DocumentRegistrationPage() {
                     </dl>
                   </div>
                   <div className="md:col-span-2">
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Recipients & Assignment</h4>
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Recipients</h4>
                     <dl className="space-y-2 text-sm">
                       <SummaryRow label="Recipients" value={recipientSummary} />
-                      <SummaryRow label="Assigned Officer" value={assignedUsers.find(u => u.id === form.assignedUserId)?.fullName ?? 'Unassigned'} />
                       <SummaryRow label="Tags" value={tags.length > 0 ? tags.map(t => '#' + t).join(' ') : '—'} />
                       <SummaryRow label="Attachments" value={files.length + ' file' + (files.length === 1 ? '' : 's')} />
                     </dl>

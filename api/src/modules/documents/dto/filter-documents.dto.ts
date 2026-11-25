@@ -70,13 +70,7 @@ export class FilterDocumentsDto extends PaginationDto {
   @IsUUID()
   originatingOfficeId?: string;
 
-  @IsOptional()
-  @IsUUID()
-  currentOfficeId?: string;
 
-  @IsOptional()
-  @IsUUID()
-  currentHolderId?: string;
 
   @IsOptional()
   @IsUUID()

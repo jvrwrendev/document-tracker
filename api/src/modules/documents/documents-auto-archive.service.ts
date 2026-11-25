@@ -7,25 +7,26 @@ import { PrismaService } from '../../prisma/prisma.service';
  * Automatic archiving.
  *
  * Workflow: REGISTERED -> RECEIVED -> ARCHIVED. Archiving is never a manual
- * user action; this job performs it 7 days after the document is registered.
- *
- * - Runs entirely on the backend, so it does not depend on a user opening the
- *   Documents page.
- * - Only documents in an active workflow status (registered / received) are
- *   eligible, so already-archived documents are never reprocessed.
- * - Receipt progress does not extend the retention window: a partially
- *   received document is still archived seven days after registration.
- * - Metadata, recipients, attachments, and receiving history are preserved:
- *   only `status` changes plus history/tracking audit entries are written.
+ * user action; this job performs it after the configured retention window.
  */
 @Injectable()
 export class DocumentsAutoArchiveService {
   private readonly logger = new Logger(DocumentsAutoArchiveService.name);
-
-  /** Documents become eligible for archiving 7 days after registration. */
   static readonly ARCHIVE_AFTER_DAYS = 7;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private async getArchiveConfig() {
+    try {
+      const settings = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } });
+      return {
+        enabled: settings?.autoArchiveEnabled ?? true,
+        days: Math.max(1, Number(settings?.autoArchiveDays ?? DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS)),
+      };
+    } catch {
+      return { enabled: true, days: DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS };
+    }
+  }
 
   @Cron(CronExpression.EVERY_HOUR)
   async archiveEligibleDocuments(): Promise<number> {
@@ -40,13 +41,11 @@ export class DocumentsAutoArchiveService {
     }
   }
 
-  /**
-   * Archive every document whose 7-day retention window has elapsed.
-   * Exposed for manual invocation (tests, admin tooling) without the cron.
-   */
   async runArchiveSweep(now: Date = new Date()): Promise<number> {
+    const config = await this.getArchiveConfig();
+    if (!config.enabled) return 0;
     const cutoff = new Date(now);
-    cutoff.setDate(cutoff.getDate() - DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS);
+    cutoff.setDate(cutoff.getDate() - config.days);
 
     // Explicitly exclude `archived` so archived documents are never
     // reprocessed, and only consider active workflow statuses.
@@ -70,17 +69,17 @@ export class DocumentsAutoArchiveService {
 
     let archived = 0;
     for (const doc of eligible) {
-      const didArchive = await this.archiveDocument(doc.id);
+      const didArchive = await this.archiveDocument(doc.id, config.days);
       if (didArchive) archived += 1;
     }
 
     this.logger.log(
-      `Automatically archived ${archived} document(s) older than ${DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS} days.`,
+      `Automatically archived ${archived} document(s) older than ${config.days} day(s).`,
     );
     return archived;
   }
 
-  private async archiveDocument(documentId: string): Promise<boolean> {
+  private async archiveDocument(documentId: string, retentionDays = DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
       // Re-check inside the transaction so a concurrent sweep (or an
       // already-archived document) can never produce a duplicate archive.
@@ -107,7 +106,7 @@ export class DocumentsAutoArchiveService {
           fromStatus,
           toStatus: 'archived',
           actorId: null,
-          remarks: `Automatically archived after ${DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS} days`,
+          remarks: `Automatically archived after ${retentionDays} day(s)`,
         },
       });
 
@@ -123,7 +122,7 @@ export class DocumentsAutoArchiveService {
             to: 'archived',
             automatic: true,
             archivedAt: archivedAt.toISOString(),
-            retentionDays: DocumentsAutoArchiveService.ARCHIVE_AFTER_DAYS,
+            retentionDays,
           } as Prisma.InputJsonValue,
         },
       });

@@ -30,7 +30,7 @@ export class DocumentReleaseController {
   constructor(private readonly releaseService: DocumentReleaseService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
-  @Permissions('documents.release')
+  @Permissions('documents.edit')
   @Audit('release.create', 'release', 'DocumentRelease')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -51,7 +51,7 @@ export class DocumentReleaseController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
-  @Permissions('documents.release')
+  @Permissions('documents.edit')
   @Patch(':id')
   @Audit('release.update', 'release', 'DocumentRelease')
   update(
@@ -62,7 +62,7 @@ export class DocumentReleaseController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
-  @Permissions('documents.release')
+  @Permissions('documents.edit')
   @Audit('release.delete', 'release', 'DocumentRelease')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)

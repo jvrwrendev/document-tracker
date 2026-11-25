@@ -55,7 +55,6 @@ function normalizeDocument<T extends DocumentListItem | DocumentDetail>(document
           attachmentCount: document._count.attachments,
           counts: {
             reviews: document._count.reviews,
-            releases: document._count.releases,
             archives: document._count.archives,
           },
         }
@@ -81,8 +80,6 @@ function buildQuery(filters?: DocumentFilters): string {
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.source) params.set('source', filters.source);
   if (filters.originatingOfficeId) params.set('originatingOfficeId', filters.originatingOfficeId);
-  if (filters.currentOfficeId) params.set('currentOfficeId', filters.currentOfficeId);
-  if (filters.currentHolderId) params.set('currentHolderId', filters.currentHolderId);
   if (filters.encodedById) params.set('encodedById', filters.encodedById);
   if (filters.receivedById) params.set('receivedById', filters.receivedById);
   if (filters.recipientOfficeId) params.set('recipientOfficeId', filters.recipientOfficeId);

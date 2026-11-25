@@ -30,7 +30,7 @@ export class DocumentArchiveController {
   constructor(private readonly archiveService: DocumentArchiveService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
-  @Permissions('documents.archive')
+  @Permissions('archive.view')
   @Audit('archive.create', 'archive', 'DocumentArchive')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -38,20 +38,20 @@ export class DocumentArchiveController {
     return this.archiveService.create(dto, user.id);
   }
 
-  @Permissions('documents.view')
+  @Permissions('archive.view')
   @Get()
   findAll(@Query() filter: FilterArchivesDto) {
     return this.archiveService.findAll(filter);
   }
 
-  @Permissions('documents.view')
+  @Permissions('archive.view')
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.archiveService.findOne(id);
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
-  @Permissions('documents.archive')
+  @Permissions('archive.view')
   @Patch(':id')
   @Audit('archive.update', 'archive', 'DocumentArchive')
   update(
@@ -62,7 +62,7 @@ export class DocumentArchiveController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
-  @Permissions('documents.archive')
+  @Permissions('archive.view')
   @Delete(':id')
   @Audit('archive.delete', 'archive', 'DocumentArchive')
   @HttpCode(HttpStatus.OK)

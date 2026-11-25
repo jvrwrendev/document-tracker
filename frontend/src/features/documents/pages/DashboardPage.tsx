@@ -75,19 +75,16 @@ export function DashboardPage() {
     }).length;
     const myDocuments = documents.filter(d =>
       d.encodedById === user.id ||
-      d.currentHolderId === user.id ||
-      d.receivedById === user.id
+      d.recipients.some(r => r.officeId === user.officeId)
     ).length;
     return { total, inProgress, completed, overdue, myDocuments };
-  }, [documents, user.id]);
+  }, [documents, user.id, user.officeId]);
 
   const pendingForUser = useMemo(() => {
     return documents
       .filter(d =>
-        d.currentHolderId === user.id ||
-        d.receivedById === user.id ||
-        d.currentOfficeId === user.officeId ||
-        d.recipients.some(r => r.officeId === user.officeId && r.status === 'received')
+        d.encodedById === user.id ||
+        d.recipients.some(r => r.officeId === user.officeId)
       )
       .filter(d => PENDING_STATUSES.has(d.status))
       .sort((a, b) => {
@@ -99,7 +96,7 @@ export function DashboardPage() {
         if (aTime !== bTime) return aTime - bTime;
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
-  }, [documents, user.id]);
+  }, [documents, user.id, user.officeId]);
 
   const pendingTotal = pendingForUser.length;
 
@@ -137,7 +134,7 @@ export function DashboardPage() {
                 View All Documents
               </Button>
             </Link>
-            {hasPermission('documents.register') && (
+            {hasPermission('documents.create') && (
               <Link to="/documents/register">
                 <Button variant="primary" leftIcon={<FilePlus className="w-4 h-4" />}>
                   Register Document
@@ -373,7 +370,10 @@ export function DashboardPage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {pendingForUser.map(doc => {
-              const office = officeById(doc.currentOfficeId);
+              const office = doc.originatingOfficeId ? officeById(doc.originatingOfficeId) : null;
+              const originName = doc.source === 'external'
+                ? doc.senderName ?? 'External'
+                : office?.name ?? doc.originatingOfficeName ?? '—';
               const action = getActionForStatus(doc.status as DocumentStatus);
               const isOverdue =
                 !!doc.dueDate &&
@@ -418,7 +418,7 @@ export function DashboardPage() {
                       {doc.title}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
-                      {office && <span>{office.code}</span>}
+                      <span>{originName}</span>
                       {doc.dueDate && (
                         <>
                           <span className="text-slate-300">·</span>

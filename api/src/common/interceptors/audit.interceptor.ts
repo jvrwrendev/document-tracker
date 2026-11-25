@@ -200,7 +200,7 @@ const body = (request.body ?? {}) as Record<string, unknown>;
       case 'user.update':
         return `User updated`;
       case 'user.delete':
-        return `User deleted`;
+        return `User and associated employee deleted`;
       case 'user.reset-password':
         return `User password reset`;
       case 'office.create':

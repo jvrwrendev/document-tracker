@@ -1,4 +1,4 @@
-﻿import type { DocumentStatus, DocumentType, DocumentClassification, UserRole, Permission } from '@/types';
+﻿import type { DocumentStatus, DocumentType, DocumentClassification, UserRole } from '@/types';
 
 // Workflow: REGISTERED -> RECEIVED -> ARCHIVED.
 // Nothing is ever a user-initiated status change:
@@ -47,11 +47,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
  * Roles allowed to use Recipient Tracking, which shows how a document was
  * distributed to every receiving office and which of them acknowledged it.
  *
- * This mirrors RECIPIENT_TRACKING_ROLES in the API
- * (api/src/modules/documents/documents.service.ts), which is the authoritative
- * check: the endpoint returns 403 for everyone else regardless of what the UI
- * renders. Kept in sync deliberately so the client hides the feature for
- * exactly the roles the server rejects.
+ * Mirrors backend ROLE_RESTRICTED_PERMISSIONS for tracking.view.
  */
 export const RECIPIENT_TRACKING_ROLES: UserRole[] = ['system_admin', 'office_admin'];
 
@@ -59,41 +55,6 @@ export function canTrackRecipients(role: UserRole | undefined | null): boolean {
   return !!role && RECIPIENT_TRACKING_ROLES.includes(role);
 }
 
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  system_admin: [
-    'dashboard.view',
-    'documents.view', 'documents.create', 'documents.edit', 'documents.delete',
-    'documents.register', 'documents.receive',
-    'documents.track',
-    'users.view', 'users.create', 'users.edit', 'users.delete',
-    'offices.view', 'offices.create', 'offices.edit', 'offices.delete',
-    'document_types.view', 'document_types.create', 'document_types.edit', 'document_types.delete',
-    'roles.view', 'roles.edit',
-    'audit.view',
-    'notifications.view',
-    'settings.view', 'settings.edit',
-  ],
-  office_admin: [
-    'dashboard.view',
-    'documents.view', 'documents.edit', 'documents.delete',
-    'documents.track',
-    'users.view', 'users.create', 'users.edit',
-    'offices.view', 'offices.edit',
-    'document_types.view', 'document_types.create', 'document_types.edit',
-    'audit.view',
-    'notifications.view',
-  ],
-  document_encoder: [
-    'dashboard.view',
-    'documents.view', 'documents.create', 'documents.edit', 'documents.register',
-    'notifications.view',
-  ],
-  document_officer: [
-    'dashboard.view',
-    'documents.view', 'documents.receive',
-    'notifications.view',
-  ],
-};
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   registered: 'Registered',
@@ -200,62 +161,240 @@ export interface OfficeDirectoryEntry {
   group: string;
 }
 
-export const OFFICE_DIRECTORY: OfficeDirectoryEntry[] = [
-  // City Government Offices
-  { name: 'Office of the City Mayor', code: 'OCM', group: 'City Government Offices' },
-   { name: 'Information Technology Service Desk', code: 'ITSD', group: 'City Government Offices' },
-  { name: 'Office of the City Vice Mayor', code: 'OCVM', group: 'City Government Offices' },
-  { name: 'Sangguniang Panlungsod', code: 'SP', group: 'City Government Offices' },
-  { name: "City Administrator's Office", code: 'ADMIN', group: 'City Government Offices' },
-  { name: 'City Legal Office', code: 'LEGAL', group: 'City Government Offices' },
-  { name: 'City Human Resource Management Office', code: 'HRMO', group: 'City Government Offices' },
-  { name: 'City Planning and Development Office', code: 'CPDO', group: 'City Government Offices' },
-  { name: 'City Budget Office', code: 'CBO', group: 'City Government Offices' },
-  { name: 'City Accounting Office', code: 'ACCT', group: 'City Government Offices' },
-  { name: "City Treasurer's Office", code: 'TREAS', group: 'City Government Offices' },
-  { name: "City Assessor's Office", code: 'ASSESS', group: 'City Government Offices' },
-  { name: 'City Engineering Office', code: 'ENG', group: 'City Government Offices' },
-  { name: 'City Agriculture Office', code: 'AGRI', group: 'City Government Offices' },
-  { name: 'City Veterinary Office', code: 'VET', group: 'City Government Offices' },
-  { name: 'City Health Office', code: 'HEALTH', group: 'City Government Offices' },
-  { name: 'City Social Welfare and Development Office', code: 'CSWDO', group: 'City Government Offices' },
-  { name: 'City Environment and Natural Resources Office', code: 'CITY-ENRO', group: 'City Government Offices' },
-  { name: 'City Disaster Risk Reduction and Management Office', code: 'CDRRMO', group: 'City Government Offices' },
-  { name: 'City General Services Office', code: 'GSO', group: 'City Government Offices' },
-  { name: "City Civil Registrar's Office", code: 'CCRO', group: 'City Government Offices' },
-  { name: 'City Cooperative Office', code: 'COOP', group: 'City Government Offices' },
-  { name: 'City Economic Enterprise Office', code: 'CEEO', group: 'City Government Offices' },
-  { name: 'Office of the Building Official', code: 'OBO', group: 'City Government Offices' },
-  { name: 'Public Employment Service Office (PESO)', code: 'PESO', group: 'City Government Offices' },
-  { name: 'Bids and Awards Committee (BAC)', code: 'BAC', group: 'City Government Offices' },
-  { name: 'Information and Communications Technology Office', code: 'ICTO', group: 'City Government Offices' },
-  { name: 'City Tourism Office', code: 'TOUR', group: 'City Government Offices' },
-  { name: 'City Library', code: 'LIBRARY', group: 'City Government Offices' },
-  { name: 'Public Information Office', code: 'PIO', group: 'City Government Offices' },
-  { name: 'Local Economic Enterprise Office', code: 'LEEO', group: 'City Government Offices' },
+export interface OfficeDirectoryEntry {
+  code: string;
+  name: string;
+  group: string;
+}
 
-  // National Government Offices in Valencia City
-  { name: 'Bureau of Fire Protection (BFP)', code: 'BFP', group: 'National Government Offices in Valencia City' },
-  { name: 'Bureau of Internal Revenue (BIR)', code: 'BIR', group: 'National Government Offices in Valencia City' },
-  { name: 'Bureau of Jail Management and Penology (BJMP)', code: 'BJMP', group: 'National Government Offices in Valencia City' },
-  { name: 'Commission on Audit (COA)', code: 'COA', group: 'National Government Offices in Valencia City' },
-  { name: 'Commission on Elections (COMELEC)', code: 'COMELEC', group: 'National Government Offices in Valencia City' },
-  { name: 'Community Environment and Natural Resources Office (CENRO)', code: 'CENRO', group: 'National Government Offices in Valencia City' },
-  { name: 'Department of Agrarian Reform (DAR)', code: 'DAR', group: 'National Government Offices in Valencia City' },
-  { name: 'Department of the Interior and Local Government (DILG)', code: 'DILG', group: 'National Government Offices in Valencia City' },
-  { name: 'Department of Education â€“ Valencia City', code: 'DEPED-VAL', group: 'National Government Offices in Valencia City' },
-  { name: 'Land Transportation Office (LTO)', code: 'LTO', group: 'National Government Offices in Valencia City' },
-  { name: 'Municipal Trial Court in Cities (MTCC)', code: 'MTCC', group: 'National Government Offices in Valencia City' },
-  { name: 'Pag-IBIG Fund', code: 'PAG-IBIG', group: 'National Government Offices in Valencia City' },
-  { name: 'Parole and Probation Office', code: 'PPO', group: 'National Government Offices in Valencia City' },
-  { name: 'Philippine Health Insurance Corporation (PhilHealth)', code: 'PHILHEALTH', group: 'National Government Offices in Valencia City' },
-  { name: 'Philippine National Police (PNP)', code: 'PNP', group: 'National Government Offices in Valencia City' },
-  { name: 'Philippine Postal Corporation (PhilPost)', code: 'PHILPOST', group: 'National Government Offices in Valencia City' },
-  { name: 'Professional Regulation Commission (PRC)', code: 'PRC', group: 'National Government Offices in Valencia City' },
-  { name: "Prosecutor's Office", code: 'PROSEC', group: 'National Government Offices in Valencia City' },
-  { name: "Public Attorney's Office (PAO)", code: 'PAO', group: 'National Government Offices in Valencia City' },
-  { name: 'Social Security System (SSS)', code: 'SSS', group: 'National Government Offices in Valencia City' },
-  { name: 'Technical Education and Skills Development Authority (TESDA)', code: 'TESDA', group: 'National Government Offices in Valencia City' },
-  { name: 'National Irrigation Administration (NIA)', code: 'NIA', group: 'National Government Offices in Valencia City' },
-  { name: 'National Food Authority (NFA)', code: 'NFA', group: 'National Government Offices in Valencia City' },
+export const OFFICE_DIRECTORY: OfficeDirectoryEntry[] = [
+  // Main LGU Departments and Offices
+  { code: "CMO", name: "City Mayor's Office", group: "DEPARTMENT" },
+  { code: "SPO", name: "Sangguniang Panlungsod Office", group: "DEPARTMENT" },
+  { code: "OCA", name: "Office of the City Administrator", group: "DEPARTMENT" },
+  { code: "CACCO", name: "City Accounting Office", group: "DEPARTMENT" },
+  { code: "CAGO", name: "City Agriculture Office", group: "DEPARTMENT" },
+  { code: "CASSO", name: "City Assessor's Office", group: "DEPARTMENT" },
+  { code: "CBO", name: "City Budget Office", group: "DEPARTMENT" },
+  { code: "CCRO", name: "City Civil Registrar's Office", group: "DEPARTMENT" },
+  { code: "CCO", name: "City Cooperative Office", group: "DEPARTMENT" },
+  {
+    code: "CDRRMO",
+    name: "City Disaster Risk Reduction and Management Office",
+    group: "DEPARTMENT",
+  },
+  { code: "CEEO", name: "City Economic Enterprise Office", group: "DEPARTMENT" },
+  { code: "CEO", name: "City Engineer's Office", group: "DEPARTMENT" },
+  {
+    code: "CENRO",
+    name: "City Environment and Natural Resource Office",
+    group: "DEPARTMENT",
+  },
+  { code: "CGSO", name: "City General Services Office", group: "DEPARTMENT" },
+  { code: "CHO", name: "City Health Office", group: "DEPARTMENT" },
+  { code: "CLO", name: "City Legal Office", group: "DEPARTMENT" },
+  {
+    code: "OCPDC",
+    name: "Office of the City Planning and Development Coordinator",
+    group: "DEPARTMENT",
+  },
+  {
+    code: "CSWDO",
+    name: "City Social Welfare and Development Office",
+    group: "DEPARTMENT",
+  },
+  { code: "CTO", name: "City Treasurer's Office", group: "DEPARTMENT" },
+  { code: "CVO", name: "City Veterinary Office", group: "DEPARTMENT" },
+  { code: "HRMO", name: "Human Resource Management Office", group: "DEPARTMENT" },
+  { code: "OBO", name: "Office of the Building Official", group: "DEPARTMENT" },
+
+  // City Mayor's Office Divisions
+  {
+    code: "CMO-AD",
+    name: "City Mayor's Office - Administrative Division",
+    group: "CMO",
+  },
+  {
+    code: "ABED",
+    name: "Agricultural and Biosystem Engineering Division",
+    group: "CMO",
+  },
+  {
+    code: "AIDSAD",
+    name: "Anti-Illegal Drug and Substance Abuse Division",
+    group: "CMO",
+  },
+  {
+    code: "BCAD",
+    name: "Barangay and Community Affairs Division",
+    group: "CMO",
+  },
+  {
+    code: "BVTED",
+    name: "Basic, Vocational and Technical Education Division",
+    group: "CMO",
+  },
+  { code: "BAC", name: "Bids and Awards Committee Office", group: "CMO" },
+  {
+    code: "CNHPDD",
+    name: "City Nutrition and Human Physical Development Division",
+    group: "CMO",
+  },
+  {
+    code: "CTCAD",
+    name: "City Tourism and Cultural Affairs Division",
+    group: "CMO",
+  },
+  { code: "CL", name: "City Library", group: "CMO" },
+  { code: "ICAD", name: "Internal Control and Audit Division", group: "CMO" },
+  {
+    code: "PDAO",
+    name: "Person with Disability Affairs Office Division",
+    group: "CMO",
+  },
+  {
+    code: "CYDO",
+    name: "Valencia City Youth Development Office Division",
+    group: "CMO",
+  },
+  {
+    code: "LNALD",
+    name: "Local and National Agencies Liaison Division",
+    group: "CMO",
+  },
+  { code: "SGRD", name: "Sports and Games Regulations Division", group: "CMO" },
+  { code: "CSD", name: "Civil Security Division", group: "CMO" },
+  { code: "CEC", name: "City Events Committee", group: "CMO" },
+  { code: "GAD", name: "Gender and Development Office", group: "CMO" },
+  { code: "ST", name: "Sanitation Team", group: "CMO" },
+
+  // Sangguniang Panlungsod Offices
+  { code: "OVM", name: "Office of the City Vice Mayor", group: "SPO" },
+  { code: "OSS", name: "Office of the Secretary to the Sanggunian", group: "SPO" },
+  { code: "OC-BERNAL", name: "Office of Councilor Bernal", group: "SPO" },
+  { code: "OC-RECLA", name: "Office of Councilor Cadigal-Recla", group: "SPO" },
+  { code: "OC-CENTILLAS", name: "Office of Councilor Centillas", group: "SPO" },
+  { code: "OC-DEASIS", name: "Office of Councilor De Asis", group: "SPO" },
+  {
+    code: "OC-FERNANDEZ",
+    name: "Office of Councilor Galario-Fernandez",
+    group: "SPO",
+  },
+  { code: "OC-HERA", name: "Office of Councilor Hera", group: "SPO" },
+  { code: "OC-LAVINA", name: "Office of Councilor Laviña", group: "SPO" },
+  {
+    code: "OC-CABALLERO",
+    name: "Office of Councilor Mabao-Caballero",
+    group: "SPO",
+  },
+  { code: "OC-SISTOSO", name: "Office of Councilor Sistoso", group: "SPO" },
+  { code: "OC-ZAMBRANO", name: "Office of Councilor Zambrano", group: "SPO" },
+  { code: "IPMR", name: "Indigenous Peoples Representative Office", group: "SPO" },
+  { code: "ABC", name: "Liga ng mga Barangay Office", group: "SPO" },
+  { code: "SKF", name: "SK Federation Office", group: "SPO" },
+
+  // Office of the City Administrator Divisions
+  {
+    code: "EPSD",
+    name: "Employment and Placement Services Division",
+    group: "OCA",
+  },
+  {
+    code: "ITSD",
+    name: "Information Technology Service Division",
+    group: "OCA",
+  },
+  { code: "NC", name: "Negosyo Center", group: "OCA" },
+  { code: "PLD", name: "Permit and Licenses Division", group: "OCA" },
+  {
+    code: "LEDIPO",
+    name: "Local Economic Development and Investment Promotion Office",
+    group: "OCA",
+  },
+  {
+    code: "PIAD",
+    name: "Public Information and Assistance Division",
+    group: "OCA",
+  },
+  {
+    code: "CTTMD",
+    name: "City Traffic and Transportation Management Division",
+    group: "OCA",
+  },
+
+  // City Economic Enterprise Office Divisions
+  {
+    code: "CEEO-AD",
+    name: "City Economic Enterprise Office - Administrative Division",
+    group: "CEEO",
+  },
+  {
+    code: "PCGPD",
+    name: "Public Cemetery, Gym and Plaza Division",
+    group: "CEEO",
+  },
+  { code: "CMD", name: "Central Market Division", group: "CEEO" },
+  { code: "FMD", name: "Farmer's Market Division", group: "CEEO" },
+  {
+    code: "PTTD-NT",
+    name: "Public Transportation Terminal Division - New Terminal",
+    group: "CEEO",
+  },
+  {
+    code: "PTTD-OT",
+    name: "Public Transportation Terminal Division - Old Terminal",
+    group: "CEEO",
+  },
+  {
+    code: "FAOD-FL",
+    name: "Food Animal Operation Division - Valencia City Fishlanding",
+    group: "CEEO",
+  },
+  {
+    code: "FAOD-SH",
+    name: "Food Animal Operation Division - Valencia City Slaughterhouse",
+    group: "CEEO",
+  },
+
+  // National Government Agencies
+  {
+    code: "COMELEC",
+    name: "Commission on Elections",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "DA",
+    name: "Department of Agriculture",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "DILG",
+    name: "Department of the Interior and Local Government",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "LTO",
+    name: "Land Transportation Office",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "OCP",
+    name: "Prosecutor's Office",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "PAO",
+    name: "Public Attorney's Office",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "PNP",
+    name: "Valencia City Philippine National Police",
+    group: "NATIONAL_AGENCY",
+  },
+  {
+    code: "POST",
+    name: "Valencia City Post Office",
+    group: "NATIONAL_AGENCY",
+  },
 ];

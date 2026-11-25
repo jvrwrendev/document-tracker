@@ -112,7 +112,7 @@ export function OutboxPage() {
         description="Documents originating from your office or registered by you"
         actions={
           <div className="flex items-center gap-2">
-            {hasPermission('documents.register') && (
+            {hasPermission('documents.create') && (
               <Link to="/documents/register">
                 <Button leftIcon={<Send className="h-4 w-4" />}>Register Document</Button>
               </Link>
@@ -214,7 +214,7 @@ export function OutboxPage() {
               action={
                 hasFilters ? (
                   <Button variant="outline" onClick={resetFilters}>Reset filters</Button>
-                ) : hasPermission('documents.register') ? (
+                ) : hasPermission('documents.create') ? (
                   <Link to="/documents/register">
                     <Button leftIcon={<Send className="h-4 w-4" />}>Register Document</Button>
                   </Link>

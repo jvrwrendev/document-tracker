@@ -171,9 +171,13 @@ export function DocumentDetailPage() {
     return true;
   };
 
-  const office = officeById(doc.currentOfficeId);
-  const holderName = doc.currentHolder?.fullName ?? (doc.currentHolderId ? userById(doc.currentHolderId)?.fullName ?? null : null);
-  const holderPosition = doc.currentHolder?.position ?? (doc.currentHolderId ? userById(doc.currentHolderId)?.position ?? null : null);
+  const originOffice = doc.originatingOfficeId ? officeById(doc.originatingOfficeId) : undefined;
+  const originatingOfficeLabel =
+    doc.source === 'external'
+      ? doc.senderName ?? 'External Source'
+      : originOffice
+        ? `${originOffice.code} ${originOffice.name}`
+        : doc.originatingOfficeName ?? '—';
 
   return (
     <div className="space-y-6">
@@ -187,9 +191,7 @@ export function DocumentDetailPage() {
 
       <DocumentHero
         document={doc}
-        holderName={holderName}
-        holderPosition={holderPosition}
-        office={office ? `${office.code} ${office.name}` : null}
+        originatingOfficeLabel={originatingOfficeLabel}
         isOverdue={!!isOverdue}
         primaryAction={receiveAvailable ? 'receive' : null}
         onPrimaryAction={() => receiveAvailable && setActionModal('receive')}
@@ -223,7 +225,6 @@ export function DocumentDetailPage() {
           />
           <DocumentInfoSidebar
             document={doc}
-            office={office}
             isOverdue={!!isOverdue}
             showRecipients={canTrackRecipients}
             onViewAttachment={(att: DocumentAttachment) => setPreviewAtt(att)}
@@ -260,7 +261,7 @@ export function DocumentDetailPage() {
               {doc.trackingNumber} Â· {doc.title}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Current office: {office ? `${office.code} ${office.name}` : 'â€”'} Â· Status:{' '}
+              Originating office: {originatingOfficeLabel} Â· Status:{' '}
               {DOCUMENT_STATUS_LABELS[doc.status]}
             </p>
           </div>
@@ -331,9 +332,7 @@ export function DocumentDetailPage() {
 
 interface DocumentHeroProps {
   document: DocumentDetail;
-  holderName: string | null;
-  holderPosition: string | null;
-  office: string | null;
+  originatingOfficeLabel: string;
   isOverdue: boolean;
   primaryAction: ActionType | null;
   onPrimaryAction: () => void;
@@ -343,9 +342,7 @@ interface DocumentHeroProps {
 
 function DocumentHero({
   document: d,
-  holderName,
-  holderPosition,
-  office,
+  originatingOfficeLabel,
   isOverdue,
   primaryAction,
   onPrimaryAction,
@@ -399,13 +396,13 @@ function DocumentHero({
 
       {/* 2. Office & Date Received Column (Cols 4-6) */}
       <div className="lg:col-span-3 space-y-4">
-        {/* Office */}
+        {/* Originating Office */}
         <div className="space-y-1 min-w-0">
           <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Office
+            Originating Office
           </span>
-          <p className="text-xs font-semibold text-slate-800 leading-tight truncate" title={office ?? 'OCM Office of the City Mayor'}>
-            {office ?? 'OCM Office of the City Mayor'}
+          <p className="text-xs font-semibold text-slate-800 leading-tight truncate" title={originatingOfficeLabel}>
+            {originatingOfficeLabel}
           </p>
         </div>
 
@@ -430,20 +427,22 @@ function DocumentHero({
 
       {/* 3. Holder & Due Date Column (Cols 7-9) */}
       <div className="lg:col-span-3 space-y-4">
-        {/* Holder */}
+        {/* Encoded By */}
         <div className="space-y-1 min-w-0">
           <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Holder
+            Encoded By
           </span>
           <div className="flex items-center gap-2 min-w-0">
-            <Avatar name={holderName ?? 'Juan Santos Dela Cruz'} color="bg-slate-900" size="xs" className="shrink-0" />
+            <Avatar name={d.encodedBy?.fullName ?? '—'} color="bg-slate-900" size="xs" className="shrink-0" />
             <div className="min-w-0 leading-tight">
               <p className="text-xs font-semibold text-slate-800 truncate">
-                {holderName ?? 'Juan Santos Dela Cruz'}
+                {d.encodedBy?.fullName ?? '—'}
               </p>
-              <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5" title={holderPosition ?? 'Office Head'}>
-                {holderPosition ?? 'Office Head'}
-              </p>
+              {d.encodedBy?.position && (
+                <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5" title={d.encodedBy.position}>
+                  {d.encodedBy.position}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -583,7 +582,6 @@ function DocumentActions({
 
 interface DocumentInfoSidebarProps {
   document: DocumentDetail;
-  office: { code: string; name: string } | undefined;
   isOverdue: boolean;
   showRecipients: boolean;
   onViewAttachment: (attachment: DocumentAttachment) => void;
@@ -592,7 +590,6 @@ interface DocumentInfoSidebarProps {
 
 function DocumentInfoSidebar({
   document: d,
-  office,
   isOverdue,
   showRecipients,
   onViewAttachment,
@@ -600,27 +597,6 @@ function DocumentInfoSidebar({
 }: DocumentInfoSidebarProps) {
   return (
     <>
-      {/* <Card padded={false}>
-        <div className="px-5 py-3.5 border-b border-slate-200">
-          <h3 className="text-sm font-semibold text-slate-900">People</h3>
-        </div>
-        <ul className="divide-y divide-slate-100">
-          <PersonLine label="Encoded by" person={d.encodedBy} />
-          <PersonLine label="Received by" person={d.receivedBy} />
-          <InfoLine
-            label="Holder"
-            value={d.currentHolder?.fullName ?? d.encodedBy?.fullName ?? 'Unassigned'}
-          />
-          <InfoLine
-            label="Originating office"
-            value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : (d.originatingOfficeName ?? 'â€”')}
-          />
-          <InfoLine
-            label="Current office"
-            value={office?.code && office?.name ? `${office.code} â€” ${office.name}` : 'â€”'}
-          />
-        </ul>
-      </Card> */}
 
       <Card padded={false}>
         <div className="px-5 py-3.5 border-b border-slate-200">

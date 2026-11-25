@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/apiClient';
 import type {
   RoleDefinition,
+  RolePermissionCatalog,
   RoleSummary,
   RoleUser,
 } from '@/features/system-admin/roles-permissions/types/role';
@@ -27,6 +28,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const rolesService = {
   list(): Promise<RoleSummary[]> {
     return request<RoleSummary[]>('/roles');
+  },
+
+  getCatalog(): Promise<RolePermissionCatalog> {
+    return request<RolePermissionCatalog>('/roles/catalog');
   },
 
   getById(id: string): Promise<RoleDefinition> {

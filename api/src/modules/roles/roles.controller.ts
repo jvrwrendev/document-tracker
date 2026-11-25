@@ -28,6 +28,12 @@ export class RolesController {
   }
 
   @Permissions('roles.view')
+  @Get('catalog')
+  getCatalog() {
+    return this.rolesService.getCatalog();
+  }
+
+  @Permissions('roles.view')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
@@ -40,7 +46,7 @@ export class RolesController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
-  @Permissions('roles.edit')
+  @Permissions('permissions.assign')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   async setPermissions(

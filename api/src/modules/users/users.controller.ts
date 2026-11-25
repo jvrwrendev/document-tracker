@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ROLES } from '../../common/constants/roles.constants';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,6 +31,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('users.create')
   @Audit('user.create', 'users', 'User')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -38,6 +40,7 @@ export class UsersController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('users.view')
   @SkipThrottle()
   @Get()
   findAll(@Query() filter: FilterUsersDto) {
@@ -51,12 +54,14 @@ export class UsersController {
   }
 
   @SkipThrottle()
+  @Permissions('users.view')
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.usersService.findOne(id);
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('users.edit')
   @Audit('user.update', 'users', 'User')
   @Patch(':id')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateUserDto) {
@@ -64,6 +69,7 @@ export class UsersController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
+  @Permissions('users.delete')
   @Audit('user.delete', 'users', 'User')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
@@ -72,6 +78,7 @@ export class UsersController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('users.edit')
   @Audit('user.reset-password', 'users', 'User')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':id/reset-password')
@@ -84,6 +91,7 @@ export class UsersController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('users.edit')
   @Audit('user.resend-credentials', 'users', 'User')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':id/resend-credentials')

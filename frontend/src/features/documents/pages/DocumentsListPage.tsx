@@ -106,7 +106,7 @@ export function DocumentsListPage() {
       next.statusFilter === 'awaiting' || next.statusFilter === 'partial' || next.statusFilter === 'fully_received'
         ? (next.statusFilter as DocumentReceiptState)
         : undefined;
-    const activeStatuses = ['registered', 'received', 'approved', 'rejected', 'released'] as const;
+    const activeStatuses = ['registered', 'received'] as const;
     return {
       page: next.page,
       pageSize: next.pageSize,
@@ -116,7 +116,7 @@ export function DocumentsListPage() {
       receiptState,
       typeCode: next.typeFilter === 'all' ? undefined : (next.typeFilter as never),
       classification: next.classificationFilter === 'all' ? undefined : (next.classificationFilter as never),
-      currentOfficeId: next.officeFilter === 'all' ? undefined : next.officeFilter,
+      originatingOfficeId: next.officeFilter === 'all' ? undefined : next.officeFilter,
       priority: next.priorityFilter === 'all' ? undefined : (next.priorityFilter as never),
       source: next.sourceFilter === 'all' ? undefined : (next.sourceFilter as never),
       sortBy: next.sortKey,
@@ -304,7 +304,7 @@ export function DocumentsListPage() {
         description="Manage and track all documents in the system"
         actions={
           <div className="flex items-center gap-2">
-            {hasPermission('documents.register') ? (
+            {hasPermission('documents.create') ? (
               <Link to="/documents/register">
                 <Button leftIcon={<PlusCircle className="w-4 h-4" />}>Register Document</Button>
               </Link>
@@ -382,7 +382,7 @@ export function DocumentsListPage() {
               ]}
             />
             <Select
-              label="Office"
+              label="Originating Office"
               value={officeFilter}
               onChange={e => {
                 setOfficeFilter(e.target.value);

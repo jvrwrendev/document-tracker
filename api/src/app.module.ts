@@ -35,6 +35,7 @@ import { DocumentTrackingModule } from './modules/document-tracking/document-tra
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { FormDraftsModule } from './modules/form-drafts/form-drafts.module';
     NotificationsModule,
     AuditLogsModule,
     FormDraftsModule,
+    SettingsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

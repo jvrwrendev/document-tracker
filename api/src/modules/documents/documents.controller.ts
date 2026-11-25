@@ -37,7 +37,7 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.DOCUMENT_ENCODER)
-  @Permissions('documents.register')
+  @Permissions('documents.create')
   @Audit('document.register', 'documents', 'Document')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -75,7 +75,7 @@ export class DocumentsController {
   }
 
   @SkipThrottle()
-  @Permissions('documents.view')
+  @Permissions('inbox.view')
   @Get('inbox')
   inbox(
     @Query() filter: InboxDocumentsDto,
@@ -85,7 +85,7 @@ export class DocumentsController {
   }
 
   @SkipThrottle()
-  @Permissions('documents.view')
+  @Permissions('outbox.view')
   @Get('outbox')
   outbox(
     @Query() filter: OutboxDocumentsDto,
@@ -142,7 +142,7 @@ export class DocumentsController {
 
   @SkipThrottle()
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
-  @Permissions('documents.track')
+  @Permissions('tracking.view')
   @Get(':id/recipients')
   getRecipients(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -165,6 +165,7 @@ export class DocumentsController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('tracking.view')
   @Audit('document.recipient-note.set', 'documents', 'Document')
   @Post(':id/recipients/:officeId/note')
   @HttpCode(HttpStatus.OK)
@@ -178,6 +179,7 @@ export class DocumentsController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('tracking.view')
   @Audit('document.recipient-note.delete', 'documents', 'Document')
   @Delete(':id/recipients/:officeId/note')
   @HttpCode(HttpStatus.OK)

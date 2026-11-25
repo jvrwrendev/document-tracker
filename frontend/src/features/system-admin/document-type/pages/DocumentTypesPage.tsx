@@ -151,7 +151,7 @@ export function DocumentTypesPage() {
   };
 
   const handleCreate = () => {
-    if (!hasPermission('document_types.create')) {
+    if (!hasPermission('documents.edit')) {
       toast.warning(
         'Permission needed',
         'You do not have permission to create document types.',
@@ -162,7 +162,7 @@ export function DocumentTypesPage() {
   };
 
   const handleEdit = (record: DocumentTypeRecord) => {
-    if (!hasPermission('document_types.edit')) {
+    if (!hasPermission('documents.edit')) {
       toast.warning(
         'Permission needed',
         'You do not have permission to edit document types.',
@@ -201,7 +201,7 @@ export function DocumentTypesPage() {
   };
 
   const handleDelete = async (record: DocumentTypeRecord) => {
-    if (!hasPermission('document_types.delete')) {
+    if (!hasPermission('documents.delete')) {
       toast.warning(
         'Permission needed',
         'Only system administrators can delete document types.',
@@ -243,7 +243,7 @@ export function DocumentTypesPage() {
         title="Document Types"
         description="Manage categories used when registering documents"
         actions={
-          hasPermission('document_types.create') ? (
+          hasPermission('documents.edit') ? (
             <Button
               leftIcon={<PlusCircle className="w-4 h-4" />}
               onClick={handleCreate}
@@ -376,7 +376,7 @@ export function DocumentTypesPage() {
                     >
                       Clear filters
                     </Button>
-                  ) : hasPermission('document_types.create') ? (
+                  ) : hasPermission('documents.edit') ? (
                     <Button onClick={handleCreate}>Add Document Type</Button>
                   ) : null
                 }
@@ -476,7 +476,7 @@ export function DocumentTypesPage() {
                       label: 'Edit',
                       icon: <Edit2 className="w-4 h-4" />,
                       onClick: () => handleEdit(i),
-                      disabled: !hasPermission('document_types.edit'),
+                      disabled: !hasPermission('documents.edit'),
                     },
                     { id: 'd-2', label: '', divider: true },
                     {
@@ -485,7 +485,7 @@ export function DocumentTypesPage() {
                       icon: <Trash2 className="w-4 h-4" />,
                       destructive: true,
                       onClick: () => void handleDelete(i),
-                      disabled: !hasPermission('document_types.delete'),
+                      disabled: !hasPermission('documents.delete'),
                     },
                   ]}
                 />

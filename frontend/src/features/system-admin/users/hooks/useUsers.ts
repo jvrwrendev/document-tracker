@@ -168,6 +168,8 @@ export function useUsers(initialFilters: UserListFilters = {}): UseUsersReturn {
       try {
         await userService.remove(id);
         await refetch();
+        window.dispatchEvent(new Event('users:invalidate'));
+        window.dispatchEvent(new Event('employees:invalidate'));
       } catch (err) {
         setActionError(toMessage(err, 'Failed to delete user.'));
         throw err;

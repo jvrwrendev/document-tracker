@@ -135,6 +135,49 @@ export class MailService {
     }
   }
 
+  async sendTestWithSettings(to: string, settings: any): Promise<void> {
+    const transport = this.createTransportFromSettings(settings);
+    const subject = 'DMS Test Email';
+    const text = 'This is a test email from the DMS application.\n\nIf you received this message, email delivery is configured correctly.';
+    const html = [
+      '<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;max-width:520px;margin:0 auto;">',
+      '<h2 style="color:#1d4ed8;">DMS Test Email</h2>',
+      '<p>This is a test email from the DMS application.</p>',
+      '<p>If you received this message, email delivery is configured correctly.</p>',
+      '<p style="color:#64748b;font-size:12px;">This is an automated message from the DMS.</p>',
+      '</div>',
+    ].join('');
+    await transport.sendMail({
+      from: {
+        name: settings.smtpFromName || this.config.fromName || 'CityDocs DMS',
+        address: settings.smtpFromEmail || settings.smtpUser || this.config.fromAddress,
+      },
+      to,
+      subject,
+      text,
+      html,
+    });
+  }
+
+  private createTransportFromSettings(settings: any) {
+    const host = settings.smtpHost || this.config.host;
+    const from = settings.smtpFromEmail || settings.smtpUser || this.config.fromAddress;
+    if (!host || !from) {
+      throw new Error('SMTP is not configured. Set SMTP host and sender email.');
+    }
+    const port = settings.smtpPort ?? this.config.port ?? 587;
+    const secure = settings.smtpSecure ?? this.config.secure ?? false;
+    const user = settings.smtpUser || this.config.user;
+    const pass = settings.smtpPass || this.config.pass;
+    return createTransport({
+      host,
+      port,
+      secure,
+      requireTLS: !secure,
+      auth: user ? { user, pass } : undefined,
+    });
+  }
+
   async sendAccountCreated(input: AccountCreatedEmailInput): Promise<void> {
     const firstName =
       input.fullName.trim().split(/\s+/)[0] || input.fullName;

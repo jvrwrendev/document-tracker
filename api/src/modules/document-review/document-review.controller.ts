@@ -30,7 +30,7 @@ export class DocumentReviewController {
   constructor(private readonly reviewService: DocumentReviewService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.DOCUMENT_OFFICER)
-  @Permissions('documents.review')
+  @Permissions('documents.edit')
   @Audit('review.create', 'review', 'DocumentReview')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -51,7 +51,7 @@ export class DocumentReviewController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.DOCUMENT_OFFICER)
-  @Permissions('documents.review')
+  @Permissions('documents.edit')
   @Patch(':id')
   @Audit('review.update', 'review', 'DocumentReview')
   update(
@@ -62,7 +62,7 @@ export class DocumentReviewController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
-  @Permissions('documents.review')
+  @Permissions('documents.edit')
   @Delete(':id')
   @Audit('review.delete', 'review', 'DocumentReview')
   @HttpCode(HttpStatus.OK)

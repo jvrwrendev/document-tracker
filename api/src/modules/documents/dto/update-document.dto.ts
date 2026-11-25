@@ -53,10 +53,6 @@ export class UpdateDocumentDto {
 
   @IsOptional()
   @IsUUID()
-  currentOfficeId?: string;
-
-  @IsOptional()
-  @IsUUID()
   originatingOfficeId?: string;
 
   @IsOptional()
@@ -73,10 +69,6 @@ export class UpdateDocumentDto {
   @ArrayMaxSize(50)
   @IsUUID('4', { each: true })
   recipientOfficeIds?: string[];
-
-  @IsOptional()
-  @IsUUID()
-  currentHolderId?: string;
 
   @IsOptional()
   @IsDateString()

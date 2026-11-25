@@ -68,18 +68,18 @@ future={{
                 }
               >
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute>} />
                 <Route path="/change-password" element={<ChangePasswordPage />} />
-                <Route path="/documents" element={<DocumentsListPage />} />
+                <Route path="/documents" element={<ProtectedRoute permission="documents.view"><DocumentsListPage /></ProtectedRoute>} />
                 <Route
                   path="/documents/register"
                   element={
-                    <ProtectedRoute permission="documents.register">
+                    <ProtectedRoute permission="documents.create">
                       <DocumentRegistrationPage />
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/documents/:id" element={<DocumentDetailPage />} />
+                <Route path="/documents/:id" element={<ProtectedRoute permission="documents.view"><DocumentDetailPage /></ProtectedRoute>} />
 
                 <Route
                   path="/inbox"
@@ -89,11 +89,11 @@ future={{
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/outbox" element={<OutboxPage />} />
+                <Route path="/outbox" element={<ProtectedRoute permission="outbox.view"><OutboxPage /></ProtectedRoute>} />
                 <Route
                   path="/tracking"
                   element={
-                    <ProtectedRoute roles={RECIPIENT_TRACKING_ROLES} permission="documents.track">
+                    <ProtectedRoute roles={RECIPIENT_TRACKING_ROLES} permission="tracking.view">
                       <TrackingPage />
                     </ProtectedRoute>
                   }
@@ -101,7 +101,7 @@ future={{
                 <Route
                   path="/archive"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="archive.view">
                       <ArchivePage />
                     </ProtectedRoute>
                   }
@@ -110,7 +110,7 @@ future={{
                 <Route
                   path="/users"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="users.view">
                       <UsersPage />
                     </ProtectedRoute>
                   }
@@ -118,7 +118,7 @@ future={{
                 <Route
                   path="/users/:id"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="users.view">
                       <UserDetailPage />
                     </ProtectedRoute>
                   }
@@ -126,7 +126,7 @@ future={{
                 <Route
                   path="/users/:id/edit"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="users.edit">
                       <EditUserPage />
                     </ProtectedRoute>
                   }
@@ -134,7 +134,7 @@ future={{
                 <Route
                   path="/users/new"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="users.create">
                       <AddUserPage />
                     </ProtectedRoute>
                   }
@@ -142,7 +142,7 @@ future={{
                 <Route
                   path="/offices"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="offices.view">
                       <OfficesPage />
                     </ProtectedRoute>
                   }
@@ -150,7 +150,7 @@ future={{
                 <Route
                   path="/offices/:id"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="offices.view">
                       <OfficeDetailPage />
                     </ProtectedRoute>
                   }
@@ -158,7 +158,7 @@ future={{
                 <Route
                   path="/document-types"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="documents.view">
                       <DocumentTypesPage />
                     </ProtectedRoute>
                   }
@@ -166,7 +166,7 @@ future={{
                 <Route
                   path="/document-types/:id"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="documents.view">
                       <DocumentTypeDetailPage />
                     </ProtectedRoute>
                   }
@@ -174,7 +174,7 @@ future={{
                 <Route
                   path="/roles"
                   element={
-                    <ProtectedRoute roles={['system_admin']}>
+                    <ProtectedRoute permission="roles.view">
                       <RolesPermissionsPage />
                     </ProtectedRoute>
                   }
@@ -182,7 +182,7 @@ future={{
                 <Route
                   path="/audit"
                   element={
-                    <ProtectedRoute roles={['system_admin', 'office_admin']}>
+                    <ProtectedRoute permission="audit.view">
                       <AuditLogsPage />
                     </ProtectedRoute>
                   }

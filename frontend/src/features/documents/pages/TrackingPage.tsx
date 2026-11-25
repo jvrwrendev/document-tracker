@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Building2,
   CheckCircle2,
   AlertCircle,
   RotateCcw,
@@ -9,7 +8,6 @@ import {
   FileText,
   Activity,
   Inbox,
-  User as UserIcon,
   Calendar,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -22,7 +20,6 @@ import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { StatusBadge, PriorityBadge, ClassificationBadge } from '@/components/ui/StatusBadge';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
-import { useOfficeLookup, useUserLookup } from '@/hooks/useLookups';
 import {
   ALL_DOCUMENT_STATUSES,
   DOCUMENT_STATUS_LABELS,
@@ -58,8 +55,6 @@ function isOverdueDoc(doc: DocumentListItem): boolean {
 export function TrackingPage() {
   const toast = useToast();
   const { items: documents } = useDocuments({ fetchAll: true });
-  const officeById = useOfficeLookup();
-  const userById = useUserLookup();
   const [search, setSearch] = useState(DEFAULT_FILTERS.search);
   const [statusFilter, setStatusFilter] = useState(DEFAULT_FILTERS.status);
 
@@ -278,40 +273,6 @@ export function TrackingPage() {
                 header: 'Receiving',
                 width: '175px',
                 cell: d => <ReceiptProgress progress={calculateReceiptProgress(d.recipients)} />,
-              },
-              {
-                key: 'currentOfficeId',
-                header: 'Current Office',
-                width: '170px',
-                cell: d => {
-                  const office = officeById(d.currentOfficeId);
-                  return (
-                    <div className="flex items-center gap-1.5 text-xs min-w-0">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-slate-700 truncate">{office?.name ?? d.currentOfficeId}</p>
-                        <p className="text-slate-400 font-mono text-[10px]">
-                          {office?.code ?? d.currentOfficeId}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                },
-              },
-              {
-                key: 'currentHolderId',
-                header: 'Holder',
-                width: '160px',
-                cell: d => {
-                  const holder = d.currentHolderId ? userById(d.currentHolderId) : null;
-                  if (!holder) return <span className="text-xs text-slate-400">Unassigned</span>;
-                  return (
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="text-xs text-slate-700 truncate">{holder.fullName}</span>
-                    </div>
-                  );
-                },
               },
               {
                 key: 'dueDate',

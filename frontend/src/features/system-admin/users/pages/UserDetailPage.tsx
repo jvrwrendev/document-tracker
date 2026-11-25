@@ -15,7 +15,6 @@ import {
   Edit2,
   Trash2,
   RefreshCw,
-  Send,
   AlertCircle,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -27,7 +26,7 @@ import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { useUsers } from '@/features/system-admin/users/hooks/useUsers';
-import { ApiError, mailService } from '@/features/system-admin/users/services/user.service';
+import { ApiError } from '@/features/system-admin/users/services/user.service';
 import { UserStatusBadge } from '@/features/system-admin/users/components/UserStatusBadge';
 import {
   ROLE_FROM_API,
@@ -58,7 +57,7 @@ export function UserDetailPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
-  const { hasPermission, user: authUser } = useAuth();
+  const { hasPermission } = useAuth();
 
   const { fetchById, remove, resetPassword, resendCredentials, deleting, resettingPassword, resendingCredentials } =
     useUsers();
@@ -66,7 +65,6 @@ export function UserDetailPage() {
   const [user, setUser] = useState<UserAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [testingEmail, setTestingEmail] = useState(false);
 
   const load = async (userId: string) => {
     setLoading(true);
@@ -135,35 +133,6 @@ export function UserDetailPage() {
       const message =
         err instanceof ApiError ? err.message : 'Failed to reset password.';
       toast.error('Reset failed', message);
-    }
-  };
-
-  const handleTestEmail = async () => {
-    setTestingEmail(true);
-    try {
-      const result = await mailService.test();
-      if (result.status === 'sent') {
-        toast.success(
-          'Test email sent',
-          `Delivered to ${result.recipient}. Check the inbox for the DMS Test Email.`,
-        );
-      } else if (result.status === 'skipped') {
-        toast.warning(
-          'Email not configured',
-          'SMTP is not configured, so no email was sent. Set the MAIL_* values in the API .env to enable delivery.',
-        );
-      } else {
-        toast.error(
-          'Test email failed',
-          `Sending to ${result.recipient} failed. Check the server logs.`,
-        );
-      }
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Failed to send test email.';
-      toast.error('Test email failed', message);
-    } finally {
-      setTestingEmail(false);
     }
   };
 
@@ -272,16 +241,6 @@ export function UserDetailPage() {
         ]}
         actions={
           <>
-            {authUser?.role === 'system_admin' && (
-              <Button
-                variant="outline"
-                leftIcon={<Send className="w-4 h-4" />}
-                onClick={handleTestEmail}
-                disabled={testingEmail || resettingPassword || resendingCredentials || deleting}
-              >
-                {testingEmail ? 'Sending…' : 'Test Email'}
-              </Button>
-            )}
             {hasPermission('users.edit') && (
               <Button
                 variant="outline"

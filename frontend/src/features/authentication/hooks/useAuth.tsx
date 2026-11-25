@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Permission, User, UserRole } from '@/types';
-import { ROLE_PERMISSIONS } from '@/constants';
 import { authService } from '@/features/authentication/services/authService';
+import { authApi } from '@/features/authentication/api/authApi';
 import type { AuthUser } from '@/features/authentication/api/authApi';
 import { ApiError } from '@/lib/apiClient';
 
@@ -110,12 +110,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (permission: Permission) => {
     if (!user) return false;
-    const perms =
-      user.permissions && user.permissions.length > 0
-        ? user.permissions
-        : (ROLE_PERMISSIONS[user.role] ?? []);
-    return perms.includes(permission);
+    return (user.permissions ?? []).includes(permission);
   };
+
+  useEffect(() => {
+    const refreshPermissions = async () => {
+      if (!user) return;
+      try {
+        const me = await authApi.me();
+        setUser(mapUser(me));
+      } catch {
+        // Ignore refresh failures; next authenticated request will handle it.
+      }
+    };
+    const handleFocus = () => { void refreshPermissions(); };
+    window.addEventListener('permissions:invalidate', refreshPermissions);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('permissions:invalidate', refreshPermissions);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user?.id]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

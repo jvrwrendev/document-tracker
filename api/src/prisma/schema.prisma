@@ -99,6 +99,11 @@ enum NotificationType {
   document
   system
   reminder
+  incoming_document
+  receipt_acknowledged
+  recipient_note
+  overdue
+  archived
 }
 
 enum AttachmentStatus {
@@ -275,19 +280,11 @@ model Document {
   tags                   String[]
   originatingOfficeId    String?
   originatingOfficeName  String?
-  currentOfficeId        String
-  currentHolderId        String?
   encodedById            String
   receivedById           String?
   // "All offices" is opt-in; omitting it must never fan out to every office.
   destinationsAllOffices Boolean                @default(false)
   dateReceived           DateTime?
-  approvedById           String?
-  approvedAt             DateTime?
-  approvedRemarks        String?
-  releasedById           String?
-  releasedAt             DateTime?
-  releasedRemarks        String?
   dueDate                DateTime?
   deletedAt              DateTime?
   deletedById            String?
@@ -305,8 +302,6 @@ model Document {
   @@unique([originatingOfficeId, documentNumber])
   @@index([status])
   @@index([originatingOfficeId])
-  @@index([currentOfficeId])
-  @@index([currentHolderId])
   @@index([typeId])
   @@index([deletedAt])
   @@index([documentNumber])
@@ -494,5 +489,82 @@ model AuditLog {
 
   @@index([actorId])
   @@index([module])
+  @@index([createdAt])
+}
+
+
+model SystemSetting {
+  id                        String   @id @default("default")
+  systemName                String   @default("CityDocs DMS")
+  organizationName          String   @default("")
+  organizationLogoUrl       String?
+  contactEmail              String?
+  contactPhone              String?
+  contactAddress            String?
+  language                  String   @default("en")
+  dateFormat                String   @default("MMM DD, YYYY")
+  timezone                  String   @default("Asia/Manila")
+
+  trackingPrefix            String   @default("DMS")
+  trackingYearFormat        String   @default("YYYY")
+  trackingNumberPadding     Int      @default(4)
+  defaultDocumentPriority   DocumentPriority @default(normal)
+  maxAttachmentSizeMb       Int      @default(25)
+  allowedAttachmentTypes    String[] @default(["pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg"])
+  documentRegistrationPrefs Json?
+
+  autoArchiveEnabled        Boolean  @default(true)
+  autoArchiveDays           Int      @default(7)
+  retentionPolicyDays       Int      @default(365)
+
+  smtpHost                  String?
+  smtpPort                  Int?     @default(587)
+  smtpSecure                Boolean  @default(false)
+  smtpUser                  String?
+  smtpPass                  String?
+  smtpFromEmail             String?
+  smtpFromName              String?
+  emailNotificationsEnabled Boolean  @default(true)
+
+  passwordMinLength         Int      @default(8)
+  passwordRequireUppercase  Boolean  @default(true)
+  passwordRequireLowercase  Boolean  @default(true)
+  passwordRequireNumber     Boolean  @default(true)
+  passwordRequireSymbol     Boolean  @default(false)
+  sessionTimeoutMinutes     Int      @default(480)
+  loginAttemptLimit         Int      @default(5)
+  loginLockoutMinutes       Int      @default(15)
+
+  updatedById               String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model UserNotificationPreference {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  incomingDocuments    Boolean  @default(true)
+  receiptAcknowledged  Boolean  @default(true)
+  recipientNotes       Boolean  @default(true)
+  overdueDocuments     Boolean  @default(true)
+  archivedDocuments    Boolean  @default(true)
+  soundEffects         Boolean  @default(true)
+  emailEnabled         Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model BackupRecord {
+  id          String   @id @default(uuid())
+  filename    String
+  path        String
+  sizeBytes   Int      @default(0)
+  status      String   @default("completed")
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
   @@index([createdAt])
 }

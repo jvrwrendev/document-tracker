@@ -33,11 +33,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 //   - DOCUMENT_OFFICER              receives only; must not monitor other offices
 //   - DOCUMENT_ENCODER              registers only; must not monitor distribution
 //
-// This allowlist is authoritative. It is intentionally *not* driven by the
-// editable `documents.track` permission, because re-granting that permission
-// through the Roles screen must never hand Recipient Tracking to a receiving
-// or encoding role. `documents.track` stays as the UI-facing permission that
-// mirrors this rule.
+// This allowlist is authoritative. It is intentionally not driven only by the
+// editable `tracking.view` permission; role-based restrictions are enforced in
+// the Roles service and by endpoint guards.
 export const RECIPIENT_TRACKING_ROLES: Role[] = [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN];
 
 export type DocumentTypeMeta = Prisma.DocumentTypeGetPayload<Record<string, never>>;
@@ -46,7 +44,7 @@ export type DocumentListItem = Prisma.DocumentGetPayload<{
   include: {
     type: true;
     recipients: { include: { office: { select: { id: true; name: true; code: true } } } };
-    _count: { select: { reviews: true; releases: true; archives: true; attachments: true } };
+    _count: { select: { reviews: true; archives: true; attachments: true } };
   };
 }>;
 
@@ -55,7 +53,6 @@ export type DocumentDetail = Prisma.DocumentGetPayload<{
     type: true;
     attachments: true;
     reviews: true;
-    releases: true;
     archives: true;
     history: true;
     recipients: { include: { office: { select: { id: true; name: true; code: true } } } };
@@ -107,9 +104,6 @@ export interface OutboxListResponse extends PaginatedResult<OutboxDocumentListIt
 export interface DocumentDetailResponse extends DocumentDetail {
   encodedBy: DocumentPerson | null;
   receivedBy: DocumentPerson | null;
-  approvedBy: DocumentPerson | null;
-  releasedBy: DocumentPerson | null;
-  currentHolder: DocumentPerson | null;
 }
 
 export type DocumentHistoryEntry = Prisma.DocumentHistoryGetPayload<Record<string, never>>;
@@ -286,8 +280,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
             tags: dto.tags ?? [],
             originatingOfficeId: dto.originatingOfficeId ?? null,
             originatingOfficeName: useManualOrigin ? dto.originatingOfficeName?.trim() : null,
-            currentOfficeId: authenticatedOfficeId,
-            currentHolderId: dto.currentHolderId ?? null,
             destinationsAllOffices,
             encodedById,
             dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -373,8 +365,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       priority,
       source,
       originatingOfficeId,
-      currentOfficeId,
-      currentHolderId,
       encodedById,
       receivedById,
       recipientOfficeId,
@@ -405,8 +395,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
     if (priority) where.priority = priority;
     if (source) where.source = source;
     if (originatingOfficeId) where.originatingOfficeId = originatingOfficeId;
-    if (currentOfficeId) where.currentOfficeId = currentOfficeId;
-    if (currentHolderId) where.currentHolderId = currentHolderId;
     if (encodedById) where.encodedById = encodedById;
     if (receivedById) where.receivedById = receivedById;
     if (recipientOfficeId) {
@@ -446,7 +434,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
         include: {
           type: true,
           recipients: { include: { office: { select: { id: true, name: true, code: true } } } },
-          _count: { select: { reviews: true, releases: true, archives: true, attachments: true } },
+          _count: { select: { reviews: true, archives: true, attachments: true } },
         },
         orderBy: { [sortBy ?? 'createdAt']: order },
         skip: (page - 1) * pageSize,
@@ -537,7 +525,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
               _count: {
                 select: {
                   reviews: true,
-                  releases: true,
                   archives: true,
                   attachments: true,
                 },
@@ -633,7 +620,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
               _count: {
                 select: {
                   reviews: true,
-                  releases: true,
                   archives: true,
                   attachments: true,
                 },
@@ -692,7 +678,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
         type: true,
         attachments: true,
         reviews: { orderBy: { createdAt: 'desc' } },
-        releases: { orderBy: { releasedAt: 'desc' } },
         archives: { orderBy: { archivedAt: 'desc' } },
         history: { orderBy: { occurredAt: 'asc' } },
         recipients: { include: { office: { select: { id: true, name: true, code: true } } } },
@@ -705,7 +690,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
     // Tracking, so a receiving or encoding role never sees how the document
     // was distributed to the other offices.
     const recipients = await this.visibleRecipients(doc.recipients, actorId);
-    const ids = Array.from(new Set([doc.encodedById, doc.receivedById, doc.approvedById, doc.releasedById, doc.currentHolderId].filter((value): value is string => !!value)));
+    const ids = Array.from(new Set([doc.encodedById, doc.receivedById].filter((value): value is string => !!value)));
     const users = ids.length
       ? await this.prisma.user.findMany({
           where: { id: { in: ids } },
@@ -728,9 +713,6 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
       recipients,
       encodedBy: people.get(doc.encodedById) ?? null,
       receivedBy: doc.receivedById ? people.get(doc.receivedById) ?? null : null,
-      approvedBy: doc.approvedById ? people.get(doc.approvedById) ?? null : null,
-      releasedBy: doc.releasedById ? people.get(doc.releasedById) ?? null : null,
-      currentHolder: doc.currentHolderId ? people.get(doc.currentHolderId) ?? null : null,
     };
   }
 
@@ -749,36 +731,26 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
   }
 
   /**
-   * OFFICE_ADMIN may only act on documents their own office may act on:
-   * the document is currently held by their office, OR their office has
-   * already received the document (per-office receiving). SYSTEM_ADMIN is a
-   * superuser and bypasses this check.
+   * OFFICE_ADMIN may only act on documents addressed to their own office.
+   * SYSTEM_ADMIN bypasses this check.
    */
-  private async assertOfficeOwnership(
-    actorId: string,
-    doc: { id: string; currentOfficeId: string | null },
-  ): Promise<void> {
+  private async assertOfficeOwnership(actorId: string, documentId: string): Promise<void> {
     const actor = await this.prisma.user.findUnique({
       where: { id: actorId },
       select: { role: true, employee: { select: { officeId: true } } },
     });
     if (!actor) throw new NotFoundException('Actor not found');
-    if (actor.role === Role.OFFICE_ADMIN) {
-      const officeId = actor.employee?.officeId;
-      if (!officeId) {
-        throw new ForbiddenException(
-          'You can only manage documents assigned to your own office',
-        );
-      }
-      if (doc.currentOfficeId === officeId) return;
-      const received = await this.prisma.documentRecipient.count({
-        where: { documentId: doc.id, officeId, status: 'received' },
-      });
-      if (received === 0) {
-        throw new ForbiddenException(
-          'You can only manage documents assigned to your own office',
-        );
-      }
+    if (actor.role !== Role.OFFICE_ADMIN) return;
+
+    const officeId = actor.employee?.officeId;
+    if (!officeId) {
+      throw new ForbiddenException('You can only manage documents addressed to your own office');
+    }
+    const recipient = await this.prisma.documentRecipient.count({
+      where: { documentId, officeId },
+    });
+    if (recipient === 0) {
+      throw new ForbiddenException('You can only manage documents addressed to your own office');
     }
   }
 
@@ -869,9 +841,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
     const doc = await this.prisma.document.findUnique({ where: { id } });
     if (!doc || doc.deletedAt) throw new NotFoundException('Document not found');
 
-    // OFFICE_ADMIN may only delete documents their own office may act on
-    // (held by their office or already received by their office).
-    await this.assertOfficeOwnership(actorId, doc);
+    await this.assertOfficeOwnership(actorId, id);
 
     await this.prisma.document.update({
       where: { id },

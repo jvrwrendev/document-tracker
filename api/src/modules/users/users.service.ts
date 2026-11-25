@@ -217,10 +217,34 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<UserWithEmployee> {
-    return this.prisma.user.delete({
-      where: { id },
-      include: userWithEmployeeInclude,
-    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id },
+          include: userWithEmployeeInclude,
+        });
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        await tx.user.delete({ where: { id } });
+        await tx.employee.delete({ where: { id: user.employeeId } });
+
+        return user;
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          throw new NotFoundException('User not found');
+        }
+        if (err.code === 'P2003') {
+          throw new BadRequestException(
+            'This user cannot be deleted because related records prevent employee removal.',
+          );
+        }
+      }
+      throw err;
+    }
   }
 
   async resetPassword(

@@ -72,6 +72,18 @@ export function useOffices(): UseOfficesReturn {
     void refetch();
   }, [refetch]);
 
+  useEffect(() => {
+    const handleInvalidation = () => {
+      void refetch();
+    };
+    window.addEventListener('employees:invalidate', handleInvalidation);
+    window.addEventListener('users:invalidate', handleInvalidation);
+    return () => {
+      window.removeEventListener('employees:invalidate', handleInvalidation);
+      window.removeEventListener('users:invalidate', handleInvalidation);
+    };
+  }, [refetch]);
+
   const fetchById = useCallback(async (id: string) => {
     return officeService.getById(id);
   }, []);

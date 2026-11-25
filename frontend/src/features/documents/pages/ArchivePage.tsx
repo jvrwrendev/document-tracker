@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   Calendar,
-  Building2,
   RotateCcw,
   CheckCircle2,
   SlidersHorizontal,
@@ -23,7 +22,6 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useToast } from '@/hooks/useToast';
 import { usePagination } from '@/hooks/usePagination';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
-import { useOfficeLookup } from '@/hooks/useLookups';
 import {
   ALL_DOCUMENT_TYPES,
   ALL_CLASSIFICATIONS,
@@ -39,7 +37,6 @@ const DEFAULT_FILTERS = {
   search: '',
   type: 'all',
   classification: 'all',
-  office: 'all',
   priority: 'all',
   source: 'all',
 };
@@ -47,26 +44,16 @@ const DEFAULT_FILTERS = {
 export function ArchivePage() {
   const toast = useToast();
   const { items: documents } = useDocuments({ pageSize: 100 });
-  const officeById = useOfficeLookup();
 
   const [search, setSearch] = useState(DEFAULT_FILTERS.search);
   const [typeFilter, setTypeFilter] = useState(DEFAULT_FILTERS.type);
   const [classificationFilter, setClassificationFilter] = useState(DEFAULT_FILTERS.classification);
-  const [officeFilter, setOfficeFilter] = useState(DEFAULT_FILTERS.office);
   const [priorityFilter, setPriorityFilter] = useState(DEFAULT_FILTERS.priority);
   const [sourceFilter, setSourceFilter] = useState(DEFAULT_FILTERS.source);
 
   const archivedDocs = useMemo(
     () => documents.filter(d => d.status === 'archived'),
     [documents]
-  );
-
-  const officeOptions = useMemo(
-    () => Array.from(new Set(archivedDocs.map(d => d.currentOfficeId))).map(id => ({
-      value: id,
-      label: officeById(id)?.name ?? id,
-    })),
-    [archivedDocs]
   );
 
   const filtered = useMemo(() => {
@@ -78,12 +65,11 @@ export function ArchivePage() {
       }
       if (typeFilter !== 'all' && d.type !== typeFilter) return false;
       if (classificationFilter !== 'all' && d.classification !== classificationFilter) return false;
-      if (officeFilter !== 'all' && d.currentOfficeId !== officeFilter) return false;
       if (priorityFilter !== 'all' && d.priority !== priorityFilter) return false;
       if (sourceFilter !== 'all' && d.source !== sourceFilter) return false;
       return true;
     });
-  }, [archivedDocs, search, typeFilter, classificationFilter, officeFilter, priorityFilter, sourceFilter]);
+  }, [archivedDocs, search, typeFilter, classificationFilter, priorityFilter, sourceFilter]);
 
   const pagination = usePagination({ totalItems: filtered.length, initialPageSize: 10 });
   const paged = filtered.slice(pagination.start, pagination.end);
@@ -92,7 +78,6 @@ export function ArchivePage() {
     search !== DEFAULT_FILTERS.search ||
     typeFilter !== DEFAULT_FILTERS.type ||
     classificationFilter !== DEFAULT_FILTERS.classification ||
-    officeFilter !== DEFAULT_FILTERS.office ||
     priorityFilter !== DEFAULT_FILTERS.priority ||
     sourceFilter !== DEFAULT_FILTERS.source;
 
@@ -100,7 +85,6 @@ export function ArchivePage() {
     setSearch(DEFAULT_FILTERS.search);
     setTypeFilter(DEFAULT_FILTERS.type);
     setClassificationFilter(DEFAULT_FILTERS.classification);
-    setOfficeFilter(DEFAULT_FILTERS.office);
     setPriorityFilter(DEFAULT_FILTERS.priority);
     setSourceFilter(DEFAULT_FILTERS.source);
     pagination.reset();
@@ -120,7 +104,6 @@ export function ArchivePage() {
       status: DOCUMENT_STATUS_LABELS[d.status],
       priority: d.priority,
       source: d.source,
-      currentOffice: officeById(d.currentOfficeId)?.name ?? '',
       dateReceived: d.dateReceived ? formatDate(d.dateReceived) : '',
       dueDate: d.dueDate ? formatDate(d.dueDate) : '',
       archivedAt: formatDate(d.updatedAt),
@@ -134,7 +117,6 @@ export function ArchivePage() {
       { key: 'status', header: 'Status' },
       { key: 'priority', header: 'Priority' },
       { key: 'source', header: 'Source' },
-      { key: 'currentOffice', header: 'Current Office' },
       { key: 'dateReceived', header: 'Date Received' },
       { key: 'dueDate', header: 'Due Date' },
       { key: 'archivedAt', header: 'Archived Date' },
@@ -214,12 +196,6 @@ export function ArchivePage() {
                 { value: 'all', label: 'All Classifications' },
                 ...ALL_CLASSIFICATIONS.map(c => ({ value: c, label: DOCUMENT_CLASSIFICATION_LABELS[c] })),
               ]}
-            />
-            <Select
-              label="Office"
-              value={officeFilter}
-              onChange={e => { setOfficeFilter(e.target.value); pagination.reset(); }}
-              options={[{ value: 'all', label: 'All Offices' }, ...officeOptions]}
             />
             <Select
               label="Priority"
@@ -319,23 +295,6 @@ export function ArchivePage() {
                   </div>
                 </div>
               ),
-            },
-            {
-              key: 'office',
-              header: 'Office',
-              width: '170px',
-              cell: d => {
-                const office = officeById(d.currentOfficeId);
-                return (
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    <div>
-                      <p className="text-slate-700">{office?.code}</p>
-                      <p className="text-slate-400 text-[10px]">{office?.name}</p>
-                    </div>
-                  </div>
-                );
-              },
             },
             {
               key: 'date',

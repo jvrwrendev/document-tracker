@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { rolesService, RolesApiError } from '@/features/system-admin/roles-permissions/services/roles.service';
 import type {
   RoleDefinition,
+  RolePermissionCatalog,
   RoleSummary,
   RoleUser,
 } from '@/features/system-admin/roles-permissions/types/role';
@@ -14,6 +15,7 @@ function toMessage(err: unknown, fallback: string): string {
 
 export interface UseRolesReturn {
   roles: RoleSummary[];
+  catalog: RolePermissionCatalog | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -32,6 +34,7 @@ export interface UseRolesReturn {
 
 export function useRoles(): UseRolesReturn {
   const [roles, setRoles] = useState<RoleSummary[]>([]);
+  const [catalog, setCatalog] = useState<RolePermissionCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +50,12 @@ export function useRoles(): UseRolesReturn {
     setLoading(true);
     setError(null);
     try {
-      setRoles(await rolesService.list());
+      const [roleList, catalogData] = await Promise.all([
+        rolesService.list(),
+        rolesService.getCatalog(),
+      ]);
+      setRoles(roleList);
+      setCatalog(catalogData);
     } catch (err) {
       setError(toMessage(err, 'Failed to load roles.'));
       setRoles([]);
@@ -104,6 +112,7 @@ export function useRoles(): UseRolesReturn {
 
   return {
     roles,
+    catalog,
     loading,
     error,
     refresh,

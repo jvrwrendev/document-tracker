@@ -67,6 +67,19 @@ export function OfficeDetailPage() {
     void loadOffice(id);
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    const handleInvalidation = () => {
+      void loadOffice(id);
+    };
+    window.addEventListener('employees:invalidate', handleInvalidation);
+    window.addEventListener('users:invalidate', handleInvalidation);
+    return () => {
+      window.removeEventListener('employees:invalidate', handleInvalidation);
+      window.removeEventListener('users:invalidate', handleInvalidation);
+    };
+  }, [id]);
+
   const handleDelete = async () => {
     if (!office) return;
     const ok = await confirm({

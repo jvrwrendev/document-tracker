@@ -1,50 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, Edit2, Lock } from 'lucide-react';
+import { ShieldCheck, Edit2, Lock, Save, X } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Tabs } from '@/components/ui/Tabs';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { authApi } from '@/features/authentication/api/authApi';
 import { useRoles } from '@/features/system-admin/roles-permissions/hooks/useRoles';
-import {
-  PERMISSION_GROUPS,
-  roleCoveragePercent,
-} from '@/features/system-admin/roles-permissions/types/role';
-import {
-  PermissionGroup,
-  RoleList,
-  RoleStat,
-  UsersWithRole,
-} from '@/features/system-admin/roles-permissions/components';
-import type { Permission as PermissionKey, UserRole } from '@/types';
+import { buildPermissionGroups, roleCoveragePercent } from '@/features/system-admin/roles-permissions/types/role';
+import { PermissionGroup, RoleList, RoleStat, UsersWithRole } from '@/features/system-admin/roles-permissions/components';
+import type { Permission, UserRole } from '@/types';
 
 export function RolesPermissionsPage() {
   const toast = useToast();
   const { hasPermission, user, updateCurrentUser } = useAuth();
-  const canEdit = hasPermission('roles.edit');
+  const canEdit = hasPermission('permissions.assign') && user?.role === 'system_admin';
 
   const {
-    roles,
-    loading,
-    error,
-    selectedRole,
-    selectedLoading,
-    selectedError,
-    selectRole,
-    roleUsers,
-    usersLoading,
-    usersError,
-    refresh,
-    refreshUsers,
-    updatePermissions,
+    roles, catalog, loading, error, selectedRole, selectedLoading, selectedError,
+    selectRole, roleUsers, usersLoading, usersError, refresh, refreshUsers, updatePermissions,
   } = useRoles();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<Permission[]>([]);
+  const [activeModule, setActiveModule] = useState<string>('');
 
-  // Auto-select first role on first load
   useEffect(() => {
     if (!selectedId && roles.length > 0) {
       setSelectedId(roles[0].id);
@@ -52,58 +36,86 @@ export function RolesPermissionsPage() {
     }
   }, [roles, selectedId, selectRole]);
 
-  useEffect(() => {
-    if (error) toast.error('Failed to load roles', error);
-  }, [error, toast]);
+  useEffect(() => { if (error) toast.error('Failed to load roles', error); }, [error, toast]);
+  useEffect(() => { if (selectedError) toast.error('Failed to load role', selectedError); }, [selectedError, toast]);
+  useEffect(() => { if (usersError) toast.error('Failed to load users', usersError); }, [usersError, toast]);
 
   useEffect(() => {
-    if (selectedError) toast.error('Failed to load role', selectedError);
-  }, [selectedError, toast]);
+    setEditing(false);
+    setDraft((selectedRole?.permissions ?? []) as Permission[]);
+  }, [selectedRole?.id, selectedRole?.permissions]);
 
-  useEffect(() => {
-    if (usersError) toast.error('Failed to load users', usersError);
-  }, [usersError, toast]);
-
-  const grantedPermissions = useMemo<PermissionKey[]>(
-    () => (selectedRole?.permissions ?? []) as PermissionKey[],
+  const groups = useMemo(
+    () => buildPermissionGroups(catalog, selectedRole?.id),
+    [catalog, selectedRole?.id],
+  );
+  const grantedPermissions = useMemo(
+    () => (selectedRole?.permissions ?? []) as Permission[],
     [selectedRole],
   );
+  const activePermissions = editing ? draft : grantedPermissions;
+  const coverage = useMemo(() => roleCoveragePercent(selectedRole, catalog), [selectedRole, catalog]);
 
-  const coverage = useMemo(() => roleCoveragePercent(selectedRole), [selectedRole]);
+  useEffect(() => {
+    if (groups.length === 0) return;
+    if (!activeModule || !groups.some(g => g.module === activeModule)) {
+      setActiveModule(groups[0].module);
+    }
+  }, [groups, activeModule]);
+
+  const selectedGroup = groups.find(g => g.module === activeModule) ?? groups[0];
 
   const handleSelect = (id: string) => {
+    if (editing) {
+      toast.warning('Unsaved changes', 'Save or cancel your changes before switching roles.');
+      return;
+    }
     setSelectedId(id);
     void selectRole(id);
   };
 
-  const handleToggle = async (perm: PermissionKey) => {
-    if (!canEdit) {
-      toast.warning('Permission denied', 'You cannot edit role permissions.');
-      return;
-    }
-    if (!selectedRole || saving) return;
-    const granted = grantedPermissions.includes(perm);
-    const next = granted
-      ? grantedPermissions.filter(p => p !== perm)
-      : [...grantedPermissions, perm];
+  const handleEdit = () => {
+    if (!canEdit || !selectedRole) return;
+    setDraft(grantedPermissions);
+    setEditing(true);
+  };
 
+  const handleCancel = () => {
+    setDraft(grantedPermissions);
+    setEditing(false);
+  };
+
+  const handleToggle = (perm: Permission) => {
+    if (!editing) return;
+    setDraft(prev => prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]);
+  };
+
+  const handleSelectAll = (perms: Permission[]) => {
+    if (!editing) return;
+    setDraft(prev => Array.from(new Set([...prev, ...perms])));
+  };
+
+  const handleDeselectAll = (perms: Permission[]) => {
+    if (!editing) return;
+    const remove = new Set(perms);
+    setDraft(prev => prev.filter(p => !remove.has(p)));
+  };
+
+  const handleSave = async () => {
+    if (!selectedRole || !editing || saving) return;
     setSaving(true);
     try {
-      await updatePermissions(next as PermissionKey[]);
-      toast.success(
-        granted ? 'Permission revoked' : 'Permission granted',
-        `${perm} ${granted ? 'revoked from' : 'granted to'} ${selectedRole.name}.`,
-      );
-      // Refresh the current user so in-app access gating reflects the change
-      // when the active user's own role was edited.
+      await updatePermissions(draft);
+      setEditing(false);
+      window.dispatchEvent(new Event('permissions:invalidate'));
+      toast.success('Permissions updated', `${selectedRole.name} permissions were saved.`);
       if (user && user.role === selectedRole.id) {
         const me = await authApi.me();
         updateCurrentUser(me);
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Could not update permissions.';
-      toast.error(granted ? 'Revoke failed' : 'Grant failed', message);
+      const message = err instanceof Error ? err.message : 'Could not update permissions.';
+      toast.error('Save failed', message);
     } finally {
       setSaving(false);
     }
@@ -114,25 +126,13 @@ export function RolesPermissionsPage() {
       <PageHeader
         title="Roles & Permissions"
         description="Define and manage role-based access controls"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => void refresh()}>
-            Refresh
-          </Button>
-        }
+        actions={<Button variant="outline" size="sm" onClick={() => void refresh()}>Refresh</Button>}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card>
-          <CardHeader
-            title="System Roles"
-            description={`${roles.length} role${roles.length === 1 ? '' : 's'} defined`}
-          />
-          <RoleList
-            roles={roles}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            loading={loading}
-          />
+          <CardHeader title="System Roles" description={`${roles.length} role${roles.length === 1 ? '' : 's'} defined`} />
+          <RoleList roles={roles} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
         </Card>
 
         <Card className="lg:col-span-2" padded={false}>
@@ -148,60 +148,83 @@ export function RolesPermissionsPage() {
                     <p className="text-sm text-muted-foreground mt-0.5">{selectedRole.description}</p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={canEdit ? <Edit2 className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                  disabled={!canEdit}
-                  title={canEdit ? 'Edit role' : 'Read-only'}
-                >
-                  {canEdit ? 'Edit Role' : 'Read only'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {editing ? (
+                    <>
+                      <Button variant="outline" size="sm" leftIcon={<X className="h-3.5 w-3.5" />} onClick={handleCancel} disabled={saving}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" leftIcon={<Save className="h-3.5 w-3.5" />} onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save Changes'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={canEdit ? <Edit2 className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                      disabled={!canEdit}
+                      onClick={handleEdit}
+                      title={canEdit ? 'Edit role permissions' : 'Only SYSTEM_ADMIN with permissions.assign can edit'}
+                    >
+                      {canEdit ? 'Edit Role' : 'Read only'}
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="px-4 py-4 sm:px-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-                  <RoleStat
-                    label="Permissions"
-                    value={selectedRole.permissions.length}
-                    accent="brand"
-                  />
-                  <RoleStat
-                    label="Users Assigned"
-                    value={roleUsers.length}
-                    accent="indigo"
-                  />
-                  <RoleStat
-                    label="Coverage"
-                    value={`${coverage}%`}
-                    accent="emerald"
-                  />
+                  <RoleStat label="Granted Permissions" value={activePermissions.length} accent="brand" />
+                  <RoleStat label="Users Assigned" value={roleUsers.length} accent="indigo" />
+                  <RoleStat label="Coverage" value={`${coverage}%`} accent="emerald" />
                 </div>
 
-                <div className="space-y-4">
-                  {PERMISSION_GROUPS.map(group => (
-                    <PermissionGroup
-                      key={group.label}
-                      group={group}
-                      granted={grantedPermissions}
-                      onToggle={handleToggle}
-                      canEdit={canEdit}
-                      disabled={saving}
-                      selectedRole={selectedRole?.id as UserRole | undefined}
-                    />
-                  ))}
-                </div>
+                {editing && (
+                  <div className="mb-4 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-800">
+                    Edit mode is active. Use checkboxes and module Select All/Deselect All controls, then save or cancel.
+                  </div>
+                )}
+
+                <Tabs
+                  items={groups.map(group => {
+                    const active = editing ? draft : grantedPermissions;
+                    const grantedCount = group.permissions.filter(p => active.includes(p.key)).length;
+                    return {
+                      id: group.module,
+                      label: group.module,
+                      count: grantedCount,
+                    };
+                  })}
+                  value={activeModule}
+                  onChange={setActiveModule}
+                  variant="underline"
+                  size="sm"
+                  className="mb-4 overflow-x-auto"
+                />
+
+                {selectedGroup && (
+                  <PermissionGroup
+                    key={selectedGroup.module}
+                    group={selectedGroup}
+                    granted={grantedPermissions}
+                    draftGranted={draft}
+                    editing={editing}
+                    canEdit={canEdit}
+                    saving={saving}
+                    selectedRole={selectedRole?.id as UserRole | undefined}
+                    onToggle={handleToggle}
+                    onSelectAll={handleSelectAll}
+                    onDeselectAll={handleDeselectAll}
+                  />
+                )}
               </div>
             </>
           ) : selectedLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">Loading role…</div>
           ) : (
             <div className="py-12">
-              <EmptyState
-                icon={<ShieldCheck className="h-7 w-7" />}
-                title="Select a role"
-                description="Pick a role from the list to view its permissions and members."
-              />
+              <EmptyState icon={<ShieldCheck className="h-7 w-7" />} title="Select a role" description="Pick a role from the list to view its permissions and members." />
             </div>
           )}
         </Card>
@@ -210,10 +233,7 @@ export function RolesPermissionsPage() {
       {selectedRole && (
         <Card padded={false}>
           <div className="px-4 py-4 border-b border-border sm:px-6">
-            <CardHeader
-              title={`Users with ${selectedRole.name} role`}
-              description={`${roleUsers.length} user${roleUsers.length === 1 ? '' : 's'}`}
-            />
+            <CardHeader title={`Users with ${selectedRole.name} role`} description={`${roleUsers.length} user${roleUsers.length === 1 ? '' : 's'}`} />
           </div>
           <div className="px-4 py-5 sm:px-6">
             {usersLoading && roleUsers.length === 0 ? (
@@ -224,9 +244,7 @@ export function RolesPermissionsPage() {
           </div>
           {roleUsers.length > 0 && (
             <div className="border-t border-border px-4 py-3 sm:px-6">
-              <Button variant="ghost" size="sm" onClick={() => void refreshUsers()}>
-                Refresh users
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => void refreshUsers()}>Refresh users</Button>
             </div>
           )}
         </Card>

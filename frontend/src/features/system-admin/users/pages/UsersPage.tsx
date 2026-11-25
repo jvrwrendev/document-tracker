@@ -172,16 +172,21 @@ export function UsersPage() {
 
   const handleDelete = async (user: UserAccount) => {
     const name = fullNameOf(user);
+    const employeeNo = user.employee?.employeeNo;
+    const employeeLabel = employeeNo ? `${name} (${employeeNo})` : name;
     const ok = await confirm({
-      title: 'Delete User',
-      description: `Permanently delete ${name}? This action cannot be undone.`,
-      confirmText: 'Delete User',
+      title: 'Delete User Account',
+      description: `Permanently delete the user account and associated employee record for ${employeeLabel}? Documents, tracking history, and audit logs will be preserved. This action cannot be undone.`,
+      confirmText: 'Delete User & Employee',
       variant: 'danger',
     });
     if (!ok) return;
     try {
       await remove(user.id);
-      toast.success('User deleted', `${name} has been removed from the system.`);
+      toast.success(
+        'User and employee deleted',
+        `${employeeLabel} has been removed from the system.`,
+      );
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to delete user.';
       toast.error('Delete failed', message);

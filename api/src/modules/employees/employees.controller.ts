@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { ROLES } from '../../common/constants/roles.constants';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,6 +30,7 @@ export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('employees.create')
   @Audit('employee.create', 'employees', 'Employee')
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -38,6 +40,7 @@ export class EmployeesController {
 
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('employees.view')
   @SkipThrottle()
   @Get()
   findAll(@Query() filter: FilterEmployeesDto) {
@@ -45,6 +48,7 @@ export class EmployeesController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('employees.view')
   @SkipThrottle()
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -52,6 +56,7 @@ export class EmployeesController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN, ROLES.OFFICE_ADMIN)
+  @Permissions('employees.edit')
   @Audit('employee.update', 'employees', 'Employee')
   @Patch(':id')
   update(
@@ -62,6 +67,7 @@ export class EmployeesController {
   }
 
   @Roles(ROLES.SYSTEM_ADMIN)
+  @Permissions('employees.delete')
   @Audit('employee.delete', 'employees', 'Employee')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)

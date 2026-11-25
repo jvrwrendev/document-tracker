@@ -1,40 +1,51 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   DEFAULT_NOTIFICATION_PREFS,
   type NotificationPrefs,
 } from '@/features/profile/types/profile';
-
-const STORAGE_KEY_PREFIX = 'dms.notifPrefs.';
-
-function readFromStorage(userId: string): NotificationPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + userId);
-    if (!raw) return { ...DEFAULT_NOTIFICATION_PREFS };
-    const parsed = JSON.parse(raw) as Partial<NotificationPrefs>;
-    return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
-  } catch {
-    return { ...DEFAULT_NOTIFICATION_PREFS };
-  }
-}
-
-function writeToStorage(userId: string, prefs: NotificationPrefs): void {
-  try {
-    localStorage.setItem(STORAGE_KEY_PREFIX + userId, JSON.stringify(prefs));
-  } catch {
-    // localStorage may be unavailable; silently ignore.
-  }
-}
+import { settingsService } from '@/features/profile/services/settings.service';
 
 export interface UseNotificationPrefsReturn {
   prefs: NotificationPrefs;
+  loading: boolean;
+  isSaving: boolean;
+  isDirty: boolean;
   setPref: <K extends keyof NotificationPrefs>(key: K, value: NotificationPrefs[K]) => void;
   save: () => Promise<boolean>;
-  isSaving: boolean;
+  reload: () => Promise<void>;
 }
 
 export function useNotificationPrefs(userId: string): UseNotificationPrefsReturn {
-  const [prefs, setPrefs] = useState<NotificationPrefs>(() => readFromStorage(userId));
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [saved, setSaved] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [loading, setLoading] = useState(true);
   const [isSaving, setSaving] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const data = await settingsService.getNotificationPreferences();
+      const next: NotificationPrefs = {
+        incomingDocuments: data.incomingDocuments,
+        receiptAcknowledged: data.receiptAcknowledged,
+        recipientNotes: data.recipientNotes,
+        overdueDocuments: data.overdueDocuments,
+        archivedDocuments: data.archivedDocuments,
+        soundEffects: data.soundEffects,
+        emailEnabled: data.emailEnabled,
+      };
+      setPrefs(next);
+      setSaved(next);
+    } catch {
+      setPrefs(DEFAULT_NOTIFICATION_PREFS);
+      setSaved(DEFAULT_NOTIFICATION_PREFS);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => { void reload(); }, [reload]);
 
   const setPref = useCallback<UseNotificationPrefsReturn['setPref']>((key, value) => {
     setPrefs(prev => ({ ...prev, [key]: value }));
@@ -43,12 +54,26 @@ export function useNotificationPrefs(userId: string): UseNotificationPrefsReturn
   const save = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     try {
-      writeToStorage(userId, prefs);
+      const data = await settingsService.updateNotificationPreferences(prefs);
+      const next: NotificationPrefs = {
+        incomingDocuments: data.incomingDocuments,
+        receiptAcknowledged: data.receiptAcknowledged,
+        recipientNotes: data.recipientNotes,
+        overdueDocuments: data.overdueDocuments,
+        archivedDocuments: data.archivedDocuments,
+        soundEffects: data.soundEffects,
+        emailEnabled: data.emailEnabled,
+      };
+      setPrefs(next);
+      setSaved(next);
       return true;
+    } catch {
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [prefs, userId]);
+  }, [prefs]);
 
-  return { prefs, setPref, save, isSaving };
+  const isDirty = JSON.stringify(prefs) !== JSON.stringify(saved);
+  return { prefs, loading, isSaving, isDirty, setPref, save, reload };
 }

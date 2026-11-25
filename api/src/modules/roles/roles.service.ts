@@ -29,65 +29,136 @@ export interface RoleUser {
   createdAt: string;
 }
 
-// Single source of truth for the permission catalog plus the default
-// permissions for each role. The DB stores the *effective* permission list
-// per role; when a role has no rows yet it falls back to these defaults.
+// Single source of truth for the permission catalog and defaults. The DB stores
+// the effective permission list per role; API guards and the Roles UI both read
+// from this catalog/restriction metadata.
 export const PERMISSION_CATALOG: string[] = [
   'dashboard.view',
-  'documents.view', 'documents.create', 'documents.edit', 'documents.delete',
-  'documents.register', 'documents.receive', 'documents.track',
+  'documents.view', 'documents.create', 'documents.edit', 'documents.delete', 'documents.receive',
+  'inbox.view', 'outbox.view', 'tracking.view', 'archive.view',
   'users.view', 'users.create', 'users.edit', 'users.delete',
+  'employees.view', 'employees.create', 'employees.edit', 'employees.delete',
   'offices.view', 'offices.create', 'offices.edit', 'offices.delete',
-  'document_types.view', 'document_types.create', 'document_types.edit', 'document_types.delete',
-  'roles.view', 'roles.edit',
-  'audit.view',
-  'notifications.view',
+  'roles.view', 'roles.create', 'roles.edit', 'roles.delete',
+  'permissions.view', 'permissions.assign',
   'settings.view', 'settings.edit',
+  'audit.view',
+  'backup.view', 'backup.create', 'backup.restore',
 ];
 
+// Present in catalog for forward compatibility, but not assignable/operational.
+export const RESERVED_PERMISSIONS: string[] = [
+  'roles.create', 'roles.delete',
+  'backup.view', 'backup.create', 'backup.restore',
+];
+
+// Stored when an admin intentionally saves an empty permission set. It is never
+// exposed as a real permission and prevents default-restoration on next read.
+const EMPTY_PERMISSION_SENTINEL = '__empty__';
+
+export interface PermissionCatalogItem {
+  key: string;
+  module: string;
+  action: string;
+}
+
+export const PERMISSION_MODULES: Array<{ module: string; permissions: PermissionCatalogItem[] }> = (() => {
+  const order = [
+    'Dashboard', 'Documents', 'Inbox', 'Outbox', 'Tracking', 'Archive',
+    'Users', 'Employees', 'Offices', 'Roles', 'Permissions', 'Settings',
+    'Audit Logs', 'Backup',
+  ];
+  const labels: Record<string, string> = {
+    dashboard: 'Dashboard', documents: 'Documents', inbox: 'Inbox', outbox: 'Outbox',
+    tracking: 'Tracking', archive: 'Archive', users: 'Users', employees: 'Employees',
+    offices: 'Offices', roles: 'Roles', permissions: 'Permissions', settings: 'Settings',
+    audit: 'Audit Logs', backup: 'Backup',
+  };
+  const grouped = new Map<string, PermissionCatalogItem[]>();
+  for (const key of PERMISSION_CATALOG) {
+    const [moduleKey, action] = key.split('.');
+    const module = labels[moduleKey] ?? moduleKey;
+    const items = grouped.get(module) ?? [];
+    items.push({ key, module, action });
+    grouped.set(module, items);
+  }
+  return order
+    .filter(m => grouped.has(m))
+    .map(module => ({ module, permissions: grouped.get(module)! }));
+})();
+
 /**
- * Permissions that are role-restricted by design and therefore cannot be
- * granted through the Roles screen.
- *
- * `documents.track` (Recipient Tracking) monitors the distribution and receipt
- * status of every office a document was routed to. That is supervisory, so it
- * is limited to System Administrators and Office Administrators. A Document
- * Officer receives documents and a Document Encoder registers them; neither
- * may monitor distribution, which would let them observe offices outside
- * their own. The API enforces the same allowlist by role, so this table is
- * defense in depth rather than the only control.
+ * Role-restricted permissions. Values are the roles allowed to hold the key.
+ * Any role not in the allowlist is rejected on write and cannot be granted via UI.
  */
 export const ROLE_RESTRICTED_PERMISSIONS: Record<string, Role[]> = {
-  'documents.track': [Role.DOCUMENT_ENCODER, Role.DOCUMENT_OFFICER],
+  'tracking.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'archive.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'audit.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'documents.delete': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'documents.receive': [Role.SYSTEM_ADMIN, Role.DOCUMENT_OFFICER],
+  'inbox.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN, Role.DOCUMENT_OFFICER],
+  'outbox.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN, Role.DOCUMENT_ENCODER],
+  'users.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'users.create': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'users.edit': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'users.delete': [Role.SYSTEM_ADMIN],
+  'employees.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'employees.create': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'employees.edit': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'employees.delete': [Role.SYSTEM_ADMIN],
+  'offices.view': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'offices.create': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'offices.edit': [Role.SYSTEM_ADMIN, Role.OFFICE_ADMIN],
+  'offices.delete': [Role.SYSTEM_ADMIN],
+  'roles.view': [Role.SYSTEM_ADMIN],
+  'roles.create': [Role.SYSTEM_ADMIN],
+  'roles.edit': [Role.SYSTEM_ADMIN],
+  'roles.delete': [Role.SYSTEM_ADMIN],
+  'permissions.view': [Role.SYSTEM_ADMIN],
+  'permissions.assign': [Role.SYSTEM_ADMIN],
+  'settings.view': [Role.SYSTEM_ADMIN],
+  'settings.edit': [Role.SYSTEM_ADMIN],
+  'backup.view': [Role.SYSTEM_ADMIN],
+  'backup.create': [Role.SYSTEM_ADMIN],
+  'backup.restore': [Role.SYSTEM_ADMIN],
 };
 
+export function allowedRolesForPermission(permission: string): Role[] {
+  return ROLE_RESTRICTED_PERMISSIONS[permission] ?? (Object.keys(ROLE_DEFINITIONS) as Role[]);
+}
+
+export function isPermissionRestrictedForRole(permission: string, role: Role): boolean {
+  const allowed = ROLE_RESTRICTED_PERMISSIONS[permission];
+  return !!allowed && !allowed.includes(role);
+}
+
 export function restrictedPermissionsFor(role: Role): string[] {
-  return Object.values(ROLE_RESTRICTED_PERMISSIONS)
-    .filter((roles) => roles.includes(role))
-    .flat();
+  return Object.entries(ROLE_RESTRICTED_PERMISSIONS)
+    .filter(([, roles]) => !roles.includes(role))
+    .map(([permission]) => permission);
 }
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
-  SYSTEM_ADMIN: PERMISSION_CATALOG.slice(),
+  SYSTEM_ADMIN: PERMISSION_CATALOG.filter(p => !RESERVED_PERMISSIONS.includes(p)),
   OFFICE_ADMIN: [
     'dashboard.view',
     'documents.view', 'documents.edit', 'documents.delete',
-    'documents.track',
+    'inbox.view', 'outbox.view', 'tracking.view', 'archive.view',
     'users.view', 'users.create', 'users.edit',
-    'offices.view', 'offices.edit',
-    'document_types.view', 'document_types.create', 'document_types.edit',
+    'employees.view', 'employees.create', 'employees.edit',
+    'offices.view', 'offices.create', 'offices.edit',
     'audit.view',
-    'notifications.view',
   ],
   DOCUMENT_ENCODER: [
     'dashboard.view',
-    'documents.view', 'documents.create', 'documents.edit', 'documents.register',
-    'notifications.view',
+    'documents.view', 'documents.create', 'documents.edit',
+    'outbox.view',
   ],
   DOCUMENT_OFFICER: [
     'dashboard.view',
     'documents.view', 'documents.receive',
-    'notifications.view',
+    'inbox.view',
   ],
 };
 
@@ -131,36 +202,40 @@ export class RolesService {
   }
 
   /**
-   * Returns the effective permission set for a role, seeding from the
-   * current defaults when no persisted rows exist yet.
+   * Returns the effective permission set for a role. Intentionally empty sets
+   * are represented by EMPTY_PERMISSION_SENTINEL and must not be replaced by
+   * defaults. Roles with no rows are seeded from defaults.
    */
   async effectivePermissions(roleId: string): Promise<string[]> {
     const role = this.toRoleId(roleId);
-    const reserved = new Set(restrictedPermissionsFor(role));
     const rows = await this.prisma.rolePermission.findMany({
       where: { role },
       select: { permission: true },
     });
+
     if (rows.length > 0) {
-      // Filter role-reserved permissions so a grant left over from before the
-      // restriction existed cannot be reported back to the client as active.
-      return rows.map(r => r.permission).filter(p => !reserved.has(p));
+      const perms = rows.map(r => r.permission);
+      if (perms.includes(EMPTY_PERMISSION_SENTINEL)) return [];
+      // Drop obsolete keys, reserved keys, and keys restricted for this role.
+      return perms.filter(
+        p =>
+          p !== EMPTY_PERMISSION_SENTINEL &&
+          PERMISSION_CATALOG.includes(p) &&
+          !RESERVED_PERMISSIONS.includes(p) &&
+          !isPermissionRestrictedForRole(p, role),
+      );
     }
-    // Seed defaults only on a fresh database where no role has been configured
-    // yet. An intentionally empty permission set must be honored, otherwise a
-    // full revoke would silently restore the defaults on the next login.
-    const totalRows = await this.prisma.rolePermission.count();
-    if (totalRows === 0) {
+
+    const defaults = (DEFAULT_ROLE_PERMISSIONS[role] ?? []).filter(
+      p => !RESERVED_PERMISSIONS.includes(p) && !isPermissionRestrictedForRole(p, role),
+    );
+    if (defaults.length > 0) {
       await this.prisma.rolePermission.createMany({
-        data: DEFAULT_ROLE_PERMISSIONS[role].map(permission => ({
-          role,
-          permission,
-        })),
+        data: defaults.map(permission => ({ role, permission })),
         skipDuplicates: true,
       });
-      return DEFAULT_ROLE_PERMISSIONS[role].slice();
     }
-    return [];
+    return defaults;
   }
 
   async findAll(): Promise<RoleSummary[]> {
@@ -191,45 +266,61 @@ export class RolesService {
     };
   }
 
-  /**
-   * Replaces the full effective permission list for a role. Returns the
-   * updated effective list.
-   */
+  getCatalog() {
+    const normalizeRoleMap = <T,>(obj: Record<string, T>) =>
+      Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v]));
+
+    const restricted = Object.fromEntries(
+      Object.entries(ROLE_RESTRICTED_PERMISSIONS).map(([perm, roles]) => [
+        perm,
+        roles.map(r => r.toLowerCase()),
+      ]),
+    );
+
+    return {
+      permissions: PERMISSION_CATALOG.map(key => {
+        const [moduleKey, action] = key.split('.');
+        return { key, module: moduleKey, action };
+      }),
+      modules: PERMISSION_MODULES,
+      reserved: RESERVED_PERMISSIONS,
+      restricted,
+      defaults: normalizeRoleMap(DEFAULT_ROLE_PERMISSIONS),
+    };
+  }
+
   async setPermissions(
     id: string,
     permissions: string[],
     actor?: { id: string; role: string },
   ): Promise<string[]> {
     const role = this.toRoleId(id);
-
-    // Normalize and validate every permission against the catalog.
     const normalized = Array.from(new Set(permissions));
+
     const invalid = normalized.filter(p => !PERMISSION_CATALOG.includes(p));
     if (invalid.length > 0) {
       throw new BadRequestException(`Unknown permissions: ${invalid.join(', ')}`);
     }
 
-    // Some permissions are reserved to specific roles. Rejecting them here
-    // keeps the Roles screen from handing out capabilities the API enforces
-    // by role (for example Recipient Tracking to an encoder or officer).
-    const forbidden = normalized.filter(
-      p => ROLE_RESTRICTED_PERMISSIONS[p]?.includes(role),
-    );
-    if (forbidden.length > 0) {
-      throw new ForbiddenException(
-        `${ROLE_DEFINITIONS[role].name} cannot be granted: ${forbidden.join(', ')}.`,
+    const reserved = normalized.filter(p => RESERVED_PERMISSIONS.includes(p));
+    if (reserved.length > 0) {
+      throw new BadRequestException(
+        `Reserved permissions cannot be assigned: ${reserved.join(', ')}`,
       );
     }
 
-    // The SYSTEM_ADMIN role must stay fully privileged. Rejecting removal of
-    // any permission prevents accidental self lockout of the admin's own UI.
-    if (role === Role.SYSTEM_ADMIN) {
-      const missing = DEFAULT_ROLE_PERMISSIONS[role].filter(
-        p => !normalized.includes(p),
+    const forbidden = normalized.filter(p => isPermissionRestrictedForRole(p, role));
+    if (forbidden.length > 0) {
+      throw new ForbiddenException(
+        `${ROLE_DEFINITIONS[role].name} cannot be granted: ${forbidden.join(', ')}`,
       );
+    }
+
+    if (role === Role.SYSTEM_ADMIN) {
+      const missing = DEFAULT_ROLE_PERMISSIONS[role].filter(p => !normalized.includes(p));
       if (missing.length > 0) {
         throw new ForbiddenException(
-          'Cannot remove permissions from the System Administrator role.',
+          'Cannot remove mandatory permissions from the System Administrator role.',
         );
       }
     }
@@ -238,18 +329,21 @@ export class RolesService {
       where: { role },
       select: { permission: true },
     });
-    const prev = before.map(r => r.permission);
+    const prev = before
+      .map(r => r.permission)
+      .filter(p => p !== EMPTY_PERMISSION_SENTINEL && PERMISSION_CATALOG.includes(p));
+
+    const toStore = normalized.length > 0 ? normalized : [EMPTY_PERMISSION_SENTINEL];
 
     await this.prisma.$transaction([
       this.prisma.rolePermission.deleteMany({ where: { role } }),
       this.prisma.rolePermission.createMany({
-        data: normalized.map(permission => ({ role, permission })),
+        data: toStore.map(permission => ({ role, permission })),
         skipDuplicates: true,
       }),
     ]);
 
     this.recordPermissionChanges(role, prev, normalized, actor);
-
     return normalized;
   }
 

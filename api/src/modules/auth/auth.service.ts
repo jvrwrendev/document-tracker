@@ -201,6 +201,7 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    await this.validatePasswordPolicy(dto.newPassword);
     let subject: string;
     try {
       const payload = this.jwtService.verify<{ sub: string; type: string }>(dto.token, {
@@ -237,6 +238,7 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto): Promise<RegisterResponseDto> {
+    await this.validatePasswordPolicy(dto.password);
     if (!this.mailService.isVerificationConfigured) {
       throw new ServiceUnavailableException(
         'Email verification is not configured. Please contact your system administrator.',
@@ -588,6 +590,16 @@ export class AuthService {
     });
   }
 
+
+  private async validatePasswordPolicy(password: string): Promise<void> {
+    const s = await (this.prisma as any).systemSetting.findUnique({ where: { id: 'default' } });
+    const min = s?.passwordMinLength ?? 8;
+    if (password.length < min) throw new BadRequestException(`Password must be at least ${min} characters.`);
+    if ((s?.passwordRequireUppercase ?? true) && !/[A-Z]/.test(password)) throw new BadRequestException('Password must include an uppercase letter.');
+    if ((s?.passwordRequireLowercase ?? true) && !/[a-z]/.test(password)) throw new BadRequestException('Password must include a lowercase letter.');
+    if ((s?.passwordRequireNumber ?? true) && !/[0-9]/.test(password)) throw new BadRequestException('Password must include a number.');
+    if ((s?.passwordRequireSymbol ?? false) && !/[^A-Za-z0-9]/.test(password)) throw new BadRequestException('Password must include a symbol.');
+  }
   async revokeAllSessions(userId: string, exceptSessionId?: string): Promise<number> {
     const result = await this.prisma.authSession.updateMany({
       where: {
@@ -601,6 +613,7 @@ export class AuthService {
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    await this.validatePasswordPolicy(dto.newPassword);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new UnauthorizedException('Invalid session');
@@ -628,6 +641,7 @@ export class AuthService {
     userId: string,
     newPassword: string,
   ): Promise<{ user: AuthenticatedUserDto }> {
+    await this.validatePasswordPolicy(newPassword);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { employee: { select: employeeSelect } },

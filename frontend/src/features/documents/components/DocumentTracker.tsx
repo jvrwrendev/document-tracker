@@ -108,7 +108,7 @@ export function DocumentTracker({ document }: DocumentTrackerProps) {
         timestamp: document.dateReceived,
         person: document.receivedBy,
         personLabel: 'Received by',
-        officeId: document.currentOfficeId,
+        officeId: null,
         remarks: null,
       },
       {
@@ -119,7 +119,7 @@ export function DocumentTracker({ document }: DocumentTrackerProps) {
         timestamp: document.archives[0]?.archivedAt ?? null,
         person: null,
         personLabel: 'Archived by',
-        officeId: document.currentOfficeId,
+        officeId: null,
         remarks: null,
       },
     ];

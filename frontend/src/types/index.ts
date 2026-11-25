@@ -33,40 +33,40 @@ export interface Role {
 }
 
 export type Permission =
+  | 'dashboard.view'
   | 'documents.view'
   | 'documents.create'
   | 'documents.edit'
   | 'documents.delete'
-  | 'documents.register'
   | 'documents.receive'
-  | 'documents.route'
-  | 'documents.review'
-  | 'documents.recommend'
-  | 'documents.approve'
-  | 'documents.reject'
-  | 'documents.return'
-  | 'documents.release'
-  | 'documents.archive'
-  | 'documents.track'
+  | 'inbox.view'
+  | 'outbox.view'
+  | 'tracking.view'
+  | 'archive.view'
   | 'users.view'
   | 'users.create'
   | 'users.edit'
   | 'users.delete'
+  | 'employees.view'
+  | 'employees.create'
+  | 'employees.edit'
+  | 'employees.delete'
   | 'offices.view'
   | 'offices.create'
   | 'offices.edit'
   | 'offices.delete'
-  | 'document_types.view'
-  | 'document_types.create'
-  | 'document_types.edit'
-  | 'document_types.delete'
   | 'roles.view'
+  | 'roles.create'
   | 'roles.edit'
-  | 'audit.view'
-  | 'notifications.view'
+  | 'roles.delete'
+  | 'permissions.view'
+  | 'permissions.assign'
   | 'settings.view'
   | 'settings.edit'
-  | 'dashboard.view';
+  | 'audit.view'
+  | 'backup.view'
+  | 'backup.create'
+  | 'backup.restore';
 
 export interface Office {
   id: string;
@@ -113,8 +113,6 @@ export interface Document {
   originatingOfficeId: string | null;
   originatingOfficeName?: string | null;
   destinationsAllOffices?: boolean;
-  currentOfficeId: string;
-  currentHolderId: string;
   encodedById: string;
   receivedById?: string;
   source: 'internal' | 'external';
