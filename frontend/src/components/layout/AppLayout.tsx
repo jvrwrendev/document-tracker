@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutSidebar } from './Sidebar';
 import { Header } from './Header';
+import { ModuleSwitch } from './ModuleSwitch';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { DocumentRegistrationModalProvider } from '@/features/documents/context/DocumentRegistrationModalContext';
@@ -29,6 +30,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <SidebarInset>
           <Header />
           <main className="min-w-0 flex-1 overflow-y-auto px-4 sm:px-6 py-6 max-w-[1600px] w-full mx-auto">
+            <ModuleSwitch />
             {children ?? <Outlet />}
           </main>
         </SidebarInset>
