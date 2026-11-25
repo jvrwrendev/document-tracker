@@ -109,7 +109,7 @@ export function OutboxPage() {
     <div className="space-y-6">
       <PageHeader
         title="Outbox"
-        description="Documents originating from your assigned office"
+        description="Documents originating from your office or registered by you"
         actions={
           <div className="flex items-center gap-2">
             {hasPermission('documents.register') && (
@@ -207,11 +207,9 @@ export function OutboxPage() {
               icon={<Send className="h-7 w-7" />}
               title={!user.officeId ? 'No office assigned' : loading ? 'Loading outbox…' : hasFilters ? 'No matching documents' : 'Outbox is empty'}
               description={
-                !user.officeId
-                  ? 'Ask an administrator to assign your account to an office.'
-                  : hasFilters
-                    ? 'No outgoing documents match the current filters.'
-                    : 'Documents originating from your office will appear here.'
+                hasFilters
+                  ? 'No outgoing documents match the current filters.'
+                  : 'Documents originating from your office or registered by you will appear here.'
               }
               action={
                 hasFilters ? (
@@ -259,6 +257,7 @@ export function OutboxPage() {
                   recipients={document.recipients}
                   userById={userById}
                   progress={document.receiptProgress ?? calculateReceiptProgress(document.recipients)}
+                  documentId={document.id}
                 />
               ),
             },

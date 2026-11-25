@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Textarea } from '@/components/ui/Input';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
-import { useAuth, useCurrentUser } from '@/features/authentication/hooks/useAuth';
+import { useCurrentUser } from '@/features/authentication/hooks/useAuth';
 import { useRecipientNote } from '@/features/documents/hooks/useRecipientNote';
 import { canTrackRecipients as canTrackRecipientsByRole } from '@/constants';
 import { formatDate } from '@/lib/utils';
@@ -31,7 +31,6 @@ export function RecipientOfficeList({
   progress?: DocumentReceiptProgress;
   documentId?: string;
 }) {
-  const { hasPermission } = useAuth();
   const user = useCurrentUser();
   const confirm = useConfirm();
   const noteAction = useRecipientNote();
@@ -101,7 +100,7 @@ export function RecipientOfficeList({
     }
     const updated = await noteAction.setNote(documentId, recipient.officeId, trimmed);
     if (!updated) {
-      setNoteError(noteAction.error ?? 'Could not save the note.');
+      setNoteError('Could not save the note.');
       return;
     }
     setEditingRecipientId(null);
@@ -120,7 +119,7 @@ export function RecipientOfficeList({
     if (!ok) return;
     const deleted = await noteAction.deleteNote(documentId, recipient.officeId);
     if (!deleted) {
-      setNoteError(noteAction.error ?? 'Could not delete the note.');
+      setNoteError('Could not delete the note.');
       return;
     }
     setEditingRecipientId(null);
@@ -159,16 +158,16 @@ export function RecipientOfficeList({
             View All ({recipients.length})
           </button>
         )}
-        {recipients.length === 1 && documentId && canManageRecipientNote(first) && (
+        {recipients.length === 1 && documentId && (canManageRecipientNote(first) || first.note) && (
           <button
             type="button"
             onClick={() => {
               setOpen(true);
-              startEditing(first);
+              if (canManageRecipientNote(first) && !first.note) startEditing(first);
             }}
             className="mt-0.5 text-[11px] font-medium text-brand-700 hover:text-brand-800 transition-colors"
           >
-            {first.note ? 'View / Edit note' : 'Add note'}
+            {canManageRecipientNote(first) ? (first.note ? 'View / Edit note' : 'Add note') : 'View note'}
           </button>
         )}
       </div>
@@ -248,23 +247,24 @@ export function RecipientOfficeList({
                         </div>
                       )}
 
-                      <div className="mt-3 border-t border-slate-100 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium text-slate-500 inline-flex items-center gap-1.5">
-                            <StickyNote className="w-3.5 h-3.5" />
-                            Office note
-                          </span>
-                          {canManage && !isEditing && (
-                            <button
-                              type="button"
-                              onClick={() => startEditing(recipient)}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:text-brand-800 transition-colors"
-                            >
-                              {recipient.note ? <Pencil className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                              {recipient.note ? 'Edit note' : 'Add note'}
-                            </button>
-                          )}
-                        </div>
+                      {documentId && (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-slate-500 inline-flex items-center gap-1.5">
+                              <StickyNote className="w-3.5 h-3.5" />
+                              Office note
+                            </span>
+                            {canManage && !isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => startEditing(recipient)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:text-brand-800 transition-colors"
+                              >
+                                {recipient.note ? <Pencil className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                {recipient.note ? 'Edit note' : 'Add note'}
+                              </button>
+                            )}
+                          </div>
 
                         {isEditing ? (
                           <div className="mt-2 space-y-2">
@@ -319,7 +319,8 @@ export function RecipientOfficeList({
                         ) : (
                           <p className="mt-2 text-xs text-slate-400">No office note.</p>
                         )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

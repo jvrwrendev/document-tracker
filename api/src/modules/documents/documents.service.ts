@@ -582,8 +582,13 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
   async findOutbox(
     dto: OutboxDocumentsDto,
     officeId: string | null | undefined,
+    userId?: string,
   ): Promise<OutboxListResponse> {
-    if (!officeId) {
+    const scopeConditions: Prisma.DocumentWhereInput[] = [];
+    if (officeId) scopeConditions.push({ originatingOfficeId: officeId });
+    if (userId) scopeConditions.push({ encodedById: userId });
+
+    if (scopeConditions.length === 0) {
       return {
         items: [],
         total: 0,
@@ -600,7 +605,7 @@ const destinationsAllOffices = dto.destinationsAllOffices === true;
 
     const baseWhere: Prisma.DocumentWhereInput = {
       deletedAt: null,
-      originatingOfficeId: officeId,
+      OR: scopeConditions,
     };
     const where: Prisma.DocumentWhereInput = {
       ...baseWhere,

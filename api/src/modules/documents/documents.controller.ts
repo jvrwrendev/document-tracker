@@ -91,7 +91,7 @@ export class DocumentsController {
     @Query() filter: OutboxDocumentsDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.documentsService.findOutbox(filter, user.employee?.officeId);
+    return this.documentsService.findOutbox(filter, user.employee?.officeId, user.id);
   }
 
   @SkipThrottle()

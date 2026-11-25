@@ -534,6 +534,7 @@ export function DocumentsListPage() {
                   recipients={d.recipients}
                   userById={userById}
                   progress={d.receiptProgress ?? calculateReceiptProgress(d.recipients)}
+                  documentId={d.id}
                 />
               ),
             },
